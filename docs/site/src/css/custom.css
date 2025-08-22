@@ -501,6 +501,7 @@ a code:not(:is(.table-of-contents a code)) {
   color: var(--sui-gray);
 }
 
+
 /* Box + outline + padding around the whole tabs component */
 [data-md-tabs].tabs-container {
   box-sizing: border-box;
