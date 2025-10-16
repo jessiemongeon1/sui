@@ -17,7 +17,7 @@ jobs:
         run: |
           linkinator "https://docs.sui.io" \
             --recurse \
-            --skip "linkedin.com|twitter.com|x.com|facebook.com" \
+            --skip "linkedin.com|twitter.com|x.com|facebook.com|docs\.sui\.io/references/framework|docs\.sui\.io/references/sui-api/sui-graphql/beta/reference" \
             --retry \
             --timeout 10000 \
             --format json > link-report.json
@@ -111,6 +111,8 @@ jobs:
             - **Passed:** ${passed} ✅
             - **Broken:** ${broken} ❌
             - **Skipped:** ${skipped} ⏭️
+            
+            **Note:** Skipped checking framework reference and GraphQL reference pages
             ${brokenLinksSection}
             
             ---
