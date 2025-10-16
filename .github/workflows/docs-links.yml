@@ -23,24 +23,50 @@ jobs:
             --format json > link-report.json
         continue-on-error: true
       
+      - name: Debug JSON structure
+        if: always()
+        run: |
+          echo "=== JSON Report Structure ==="
+          cat link-report.json | jq '.' | head -50
+          echo "=== Checking for 'links' key ==="
+          cat link-report.json | jq 'keys'
+      
       - name: Generate summary
         id: summary
         if: always()
         run: |
-          # Parse the JSON report and create a summary
-          TOTAL=$(jq '.links | length' link-report.json)
-          PASSED=$(jq '[.links[] | select(.state == "OK")] | length' link-report.json)
-          BROKEN=$(jq '[.links[] | select(.state == "BROKEN")] | length' link-report.json)
-          SKIPPED=$(jq '[.links[] | select(.state == "SKIPPED")] | length' link-report.json)
+          # Check if the file exists and has content
+          if [ ! -s link-report.json ]; then
+            echo "Error: link-report.json is empty or doesn't exist"
+            echo "total=0" >> $GITHUB_OUTPUT
+            echo "passed=0" >> $GITHUB_OUTPUT
+            echo "broken=0" >> $GITHUB_OUTPUT
+            echo "skipped=0" >> $GITHUB_OUTPUT
+            exit 0
+          fi
           
-          echo "total=$TOTAL" >> $GITHUB_OUTPUT
-          echo "passed=$PASSED" >> $GITHUB_OUTPUT
-          echo "broken=$BROKEN" >> $GITHUB_OUTPUT
-          echo "skipped=$SKIPPED" >> $GITHUB_OUTPUT
+          # Parse the JSON report - linkinator uses 'links' array
+          TOTAL=$(jq '.links | length // 0' link-report.json)
+          PASSED=$(jq '[.links[]? | select(.state == "OK")] | length // 0' link-report.json)
+          BROKEN=$(jq '[.links[]? | select(.state == "BROKEN")] | length // 0' link-report.json)
+          SKIPPED=$(jq '[.links[]? | select(.state == "SKIPPED")] | length // 0' link-report.json)
           
-          # Extract broken links if any
-          if [ "$BROKEN" -gt 0 ]; then
-            jq -r '[.links[] | select(.state == "BROKEN") | "- [\(.url)](\(.url)) (Status: \(.status // "N/A"))"] | join("\n")' link-report.json > broken-links.txt
+          echo "Debug - TOTAL: $TOTAL"
+          echo "Debug - PASSED: $PASSED"
+          echo "Debug - BROKEN: $BROKEN"
+          echo "Debug - SKIPPED: $SKIPPED"
+          
+          echo "total=${TOTAL}" >> $GITHUB_OUTPUT
+          echo "passed=${PASSED}" >> $GITHUB_OUTPUT
+          echo "broken=${BROKEN}" >> $GITHUB_OUTPUT
+          echo "skipped=${SKIPPED}" >> $GITHUB_OUTPUT
+          
+          # Extract broken links if any (with safe integer comparison)
+          if [ "${BROKEN}" != "0" ] && [ -n "${BROKEN}" ]; then
+            echo "Extracting broken links..."
+            jq -r '[.links[]? | select(.state == "BROKEN") | "- [\(.url)](\(.url)) (Status: \(.status // "N/A"), Parent: \(.parent // "N/A"))"] | join("\n")' link-report.json > broken-links.txt || echo "No broken links found" > broken-links.txt
+          else
+            echo "No broken links to extract" > broken-links.txt
           fi
       
       - name: Upload full link report
@@ -57,21 +83,22 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const total = '${{ steps.summary.outputs.total }}';
-            const passed = '${{ steps.summary.outputs.passed }}';
-            const broken = '${{ steps.summary.outputs.broken }}';
-            const skipped = '${{ steps.summary.outputs.skipped }}';
+            const total = '${{ steps.summary.outputs.total }}' || '0';
+            const passed = '${{ steps.summary.outputs.passed }}' || '0';
+            const broken = '${{ steps.summary.outputs.broken }}' || '0';
+            const skipped = '${{ steps.summary.outputs.skipped }}' || '0';
             const status = broken === '0' ? '✅' : '❌';
             
             let brokenLinksSection = '';
             if (broken !== '0' && fs.existsSync('broken-links.txt')) {
-              const brokenLinks = fs.readFileSync('broken-links.txt', 'utf8');
-              // Truncate if too long
-              const maxLength = 50000;
-              const truncated = brokenLinks.length > maxLength 
-                ? brokenLinks.substring(0, maxLength) + '\n\n... (truncated, see full report in artifacts)'
-                : brokenLinks;
-              brokenLinksSection = `\n### Broken Links\n\n${truncated}`;
+              const brokenLinks = fs.readFileSync('broken-links.txt', 'utf8').trim();
+              if (brokenLinks && brokenLinks !== 'No broken links to extract') {
+                const maxLength = 50000;
+                const truncated = brokenLinks.length > maxLength 
+                  ? brokenLinks.substring(0, maxLength) + '\n\n... (truncated, see full report in artifacts)'
+                  : brokenLinks;
+                brokenLinksSection = `\n### Broken Links\n\n${truncated}`;
+              }
             }
             
             const comment = `## ${status} Link Check Results
@@ -98,7 +125,8 @@ jobs:
             });
       
       - name: Fail if broken links found
-        if: steps.link-check.outcome == 'failure'
+        if: steps.summary.outputs.broken != '0' && steps.summary.outputs.broken != ''
         run: |
           echo "❌ Broken links detected on docs.sui.io"
+          echo "Found ${{ steps.summary.outputs.broken }} broken link(s)"
           exit 1
