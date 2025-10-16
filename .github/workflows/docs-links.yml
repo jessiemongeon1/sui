@@ -1,44 +1,21 @@
-name: Check Links on Vercel Preview
+name: Check Links on Sui Docs
 
 on:
-  issue_comment:
-    types: [created]
+  pull_request:
+    types: [opened, synchronize, reopened]
 
 jobs:
   link-check:
-    if: |
-      github.event.issue.pull_request && 
-      github.event.comment.user.login == 'vercel[bot]' &&
-      contains(github.event.comment.body, 'vercel.app')
     runs-on: ubuntu-latest
     
     steps:
-      - name: Extract Vercel preview URL
-        id: extract-url
-        run: |
-          COMMENT="${{ github.event.comment.body }}"
-          URL=$(echo "$COMMENT" | grep -oP 'https://[^\s\)]+vercel\.app[^\s\)]*' | head -1)
-          echo "url=$URL" >> $GITHUB_OUTPUT
-          echo "Found Vercel URL: $URL"
-      
-      - name: Verify URL was extracted
-        if: steps.extract-url.outputs.url == ''
-        run: |
-          echo "Failed to extract Vercel URL from comment"
-          exit 1
-      
-      - name: Wait for deployment to be ready
-        run: |
-          echo "Waiting 30 seconds for deployment to be fully ready..."
-          sleep 30
-      
       - name: Install linkinator
         run: npm install -g linkinator
       
-      - name: Check links
+      - name: Check links on docs.sui.io
         id: link-check
         run: |
-          linkinator "${{ steps.extract-url.outputs.url }}" \
+          linkinator "https://docs.sui.io" \
             --recurse \
             --skip "linkedin.com|twitter.com|x.com|facebook.com" \
             --retry \
@@ -63,9 +40,13 @@ jobs:
             const status = '${{ steps.link-check.outcome }}' === 'success' ? '✅' : '❌';
             const comment = `## ${status} Link Check Results
             
-            **Checked deployment:** ${{ steps.extract-url.outputs.url }}
+            **Checked:** https://docs.sui.io
+            **Date:** ${new Date().toISOString()}
             
             ${report}
+            
+            ---
+            _Automated link check on production site_
             `;
             
             github.rest.issues.createComment({
@@ -75,8 +56,16 @@ jobs:
               body: comment
             });
       
+      - name: Upload link report as artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: link-check-report-pr-${{ github.event.pull_request.number }}
+          path: link-report.md
+          retention-days: 30
+      
       - name: Fail if broken links found
         if: steps.link-check.outcome == 'failure'
         run: |
-          echo "Broken links detected. Check the comment above for details."
+          echo "❌ Broken links detected on docs.sui.io"
           exit 1
