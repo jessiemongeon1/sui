@@ -1,0 +1,82 @@
+name: Check Links on Vercel Preview
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  link-check:
+    if: |
+      github.event.issue.pull_request && 
+      github.event.comment.user.login == 'vercel[bot]' &&
+      contains(github.event.comment.body, 'vercel.app')
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Extract Vercel preview URL
+        id: extract-url
+        run: |
+          COMMENT="${{ github.event.comment.body }}"
+          URL=$(echo "$COMMENT" | grep -oP 'https://[^\s\)]+vercel\.app[^\s\)]*' | head -1)
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "Found Vercel URL: $URL"
+      
+      - name: Verify URL was extracted
+        if: steps.extract-url.outputs.url == ''
+        run: |
+          echo "Failed to extract Vercel URL from comment"
+          exit 1
+      
+      - name: Wait for deployment to be ready
+        run: |
+          echo "Waiting 30 seconds for deployment to be fully ready..."
+          sleep 30
+      
+      - name: Install linkinator
+        run: npm install -g linkinator
+      
+      - name: Check links
+        id: link-check
+        run: |
+          linkinator "${{ steps.extract-url.outputs.url }}" \
+            --recurse \
+            --skip "linkedin.com|twitter.com|x.com|facebook.com" \
+            --retry \
+            --timeout 10000 \
+            --markdown > link-report.md
+        continue-on-error: true
+      
+      - name: Read link report
+        id: report
+        if: always()
+        run: |
+          echo "report<<EOF" >> $GITHUB_OUTPUT
+          cat link-report.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
+      - name: Comment PR with results
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          script: |
+            const report = `${{ steps.report.outputs.report }}`;
+            const status = '${{ steps.link-check.outcome }}' === 'success' ? '✅' : '❌';
+            const comment = `## ${status} Link Check Results
+            
+            **Checked deployment:** ${{ steps.extract-url.outputs.url }}
+            
+            ${report}
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+      
+      - name: Fail if broken links found
+        if: steps.link-check.outcome == 'failure'
+        run: |
+          echo "Broken links detected. Check the comment above for details."
+          exit 1
