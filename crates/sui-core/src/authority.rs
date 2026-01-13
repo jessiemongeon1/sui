@@ -1025,7 +1025,7 @@ impl AuthorityState {
         )?;
 
         self.execution_cache_trait_pointers
-            .child_object_resolver
+            .account_funds_read
             .check_amounts_available(&withdraws)?;
 
         let (input_objects, receiving_objects) = self.input_loader.read_objects_for_signing(
@@ -1069,8 +1069,6 @@ impl AuthorityState {
                 withdraw
                     .type_arg
                     .get_balance_type_param()
-                    // unwrap safe because we already verified the transaction.
-                    .unwrap()
                     .map(|ty| ty.to_canonical_string(false))
             })
             .collect::<BTreeSet<_>>();
@@ -3568,7 +3566,7 @@ impl AuthorityState {
         let (tx_ready_certificates, rx_ready_certificates) = unbounded_channel();
         let execution_scheduler = Arc::new(ExecutionScheduler::new(
             execution_cache_trait_pointers.object_cache_reader.clone(),
-            execution_cache_trait_pointers.child_object_resolver.clone(),
+            execution_cache_trait_pointers.account_funds_read.clone(),
             execution_cache_trait_pointers
                 .transaction_cache_reader
                 .clone(),
@@ -3711,6 +3709,10 @@ impl AuthorityState {
 
     pub fn get_child_object_resolver(&self) -> &Arc<dyn ChildObjectResolver + Send + Sync> {
         &self.execution_cache_trait_pointers.child_object_resolver
+    }
+
+    pub(crate) fn get_account_funds_read(&self) -> &Arc<dyn AccountFundsRead> {
+        &self.execution_cache_trait_pointers.account_funds_read
     }
 
     pub fn get_backing_package_store(&self) -> &Arc<dyn BackingPackageStore + Send + Sync> {
@@ -3940,7 +3942,7 @@ impl AuthorityState {
             .await?;
         assert_eq!(new_epoch_store.epoch(), new_epoch);
         self.execution_scheduler
-            .reconfigure(&new_epoch_store, self.get_child_object_resolver());
+            .reconfigure(&new_epoch_store, self.get_account_funds_read());
         *execution_lock = new_epoch;
 
         self.notify_epoch(new_epoch);
@@ -4085,7 +4087,7 @@ impl AuthorityState {
                 .unwrap_or_default(),
         );
         self.execution_scheduler
-            .reconfigure(&new_epoch_store, self.get_child_object_resolver());
+            .reconfigure(&new_epoch_store, self.get_account_funds_read());
         let new_epoch = new_epoch_store.epoch();
         self.epoch_store.store(new_epoch_store);
         epoch_store.epoch_terminated().await;

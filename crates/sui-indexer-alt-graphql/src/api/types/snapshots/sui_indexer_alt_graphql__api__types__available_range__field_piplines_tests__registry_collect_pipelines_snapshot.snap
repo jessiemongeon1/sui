@@ -1,5 +1,6 @@
 ---
 source: crates/sui-indexer-alt-graphql/src/api/types/available_range.rs
+assertion_line: 627
 expression: output
 ---
 AccumulatorRootCreateTransaction._
@@ -114,6 +115,15 @@ BalanceChange.coinType
   => {}
 
 BalanceChange.amount
+  => {}
+
+BalanceWithdraw.reservation
+  => {}
+
+BalanceWithdraw.type
+  => {}
+
+BalanceWithdraw.withdrawFrom
   => {}
 
 BridgeCommitteeInitTransaction.bridgeObjectVersion
@@ -1463,6 +1473,9 @@ ServiceConfig.maxDisplayOutputSize
 ServiceConfig.maxDisassembledModuleSize
   => {}
 
+ServiceConfig.maxRichQueries
+  => {}
+
 ServiceConfig.availableRange
   => {}
 
@@ -1599,6 +1612,9 @@ TransactionEffects.events
   => {}
 
 TransactionEffects.balanceChanges
+  => {"tx_balance_changes", "tx_digests"}
+
+TransactionEffects.balanceChangesJson
   => {"tx_balance_changes", "tx_digests"}
 
 TransactionEffects.effectsBcs
@@ -1815,6 +1831,9 @@ ValidatorSet.validatorCandidatesId
   => {}
 
 ValidatorSet.validatorCandidatesSize
+  => {}
+
+WithdrawMaxAmountU64.amount
   => {}
 
 WriteAccumulatorStorageCostTransaction._
