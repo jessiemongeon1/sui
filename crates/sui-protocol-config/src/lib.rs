@@ -14,6 +14,7 @@ use move_binary_format::{
     file_format_common::VERSION_1,
 };
 use move_vm_config::verifier::VerifierConfig;
+use mysten_common::in_integration_test;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use sui_protocol_config_macros::{
@@ -23,7 +24,7 @@ use tracing::{info, warn};
 
 /// The minimum and maximum protocol versions supported by this build.
 const MIN_PROTOCOL_VERSION: u64 = 1;
-const MAX_PROTOCOL_VERSION: u64 = 107;
+const MAX_PROTOCOL_VERSION: u64 = 108;
 
 // Record history of protocol version allocations here:
 //
@@ -284,8 +285,11 @@ const MAX_PROTOCOL_VERSION: u64 = 107;
 //              nitro attestation native function in Devnet and Testnet.
 // Version 106: Framework update: accumulator storage fund calculations
 //              Enable address balances on devnet
-// Version 107: Enable new digit based gas rounding.
+// Version 108: Enable new digit based gas rounding.
 //              Support TxContext in all parameter positions.
+//              Disable entry point signature check.
+//              Enable address aliases on testnet.
+//              Enable poseidon_bn254 on mainnet.
 
 #[derive(Copy, Clone, Debug, Hash, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ProtocolVersion(u64);
@@ -933,6 +937,10 @@ struct FeatureFlags {
     #[serde(skip_serializing_if = "is_false")]
     enable_object_funds_withdraw: bool,
 
+    // If true, skip GC'ed blocks in direct finalization.
+    #[serde(skip_serializing_if = "is_false")]
+    consensus_skip_gced_blocks_in_direct_finalization: bool,
+
     // If true, uses a new rounding mechanism for gas calculations, replacing the step-based one
     #[serde(skip_serializing_if = "is_false")]
     gas_rounding_halve_digits: bool,
@@ -940,6 +948,10 @@ struct FeatureFlags {
     // If true, enable tx contexts in all argument positions
     #[serde(skip_serializing_if = "is_false")]
     flexible_tx_context_positions: bool,
+
+    // If true, disable entry point signature check.
+    #[serde(skip_serializing_if = "is_false")]
+    disable_entry_point_signature_check: bool,
 }
 
 fn is_false(b: &bool) -> bool {
@@ -2480,7 +2492,10 @@ impl ProtocolConfig {
             "Address aliases requires Mysticeti fastpath to be enabled"
         );
         if address_aliases {
-            // TODO: when flag for disabling CertifiedTransaction is added, add assertion for it here.
+            assert!(
+                self.feature_flags.disable_preconsensus_locking,
+                "Address aliases requires CertifiedTransaction to be disabled"
+            );
         }
         address_aliases
     }
@@ -2495,6 +2510,15 @@ impl ProtocolConfig {
 
     pub fn flexible_tx_context_positions(&self) -> bool {
         self.feature_flags.flexible_tx_context_positions
+    }
+
+    pub fn disable_entry_point_signature_check(&self) -> bool {
+        self.feature_flags.disable_entry_point_signature_check
+    }
+
+    pub fn consensus_skip_gced_blocks_in_direct_finalization(&self) -> bool {
+        self.feature_flags
+            .consensus_skip_gced_blocks_in_direct_finalization
     }
 }
 
@@ -4407,8 +4431,25 @@ impl ProtocolConfig {
                     }
                 }
                 107 => {
+                    cfg.feature_flags
+                        .consensus_skip_gced_blocks_in_direct_finalization = true;
+
+                    // Trigger edge cases more often in integration tests.
+                    if in_integration_test() {
+                        cfg.consensus_gc_depth = Some(6);
+                        cfg.consensus_max_num_transactions_in_block = Some(8);
+                    }
+                }
+                108 => {
                     cfg.feature_flags.gas_rounding_halve_digits = true;
                     cfg.feature_flags.flexible_tx_context_positions = true;
+                    cfg.feature_flags.disable_entry_point_signature_check = true;
+
+                    if chain != Chain::Mainnet {
+                        cfg.feature_flags.address_aliases = true;
+                    }
+
+                    cfg.feature_flags.enable_poseidon = true;
                 }
                 // Use this template when making changes:
                 //
@@ -4426,9 +4467,6 @@ impl ProtocolConfig {
 
         // Simtest specific overrides.
         if cfg!(msim) {
-            // Trigger GC more often.
-            cfg.consensus_gc_depth = Some(5);
-
             // Trigger checkpoint splitting more often.
             // cfg.max_transactions_per_checkpoint = Some(10);
             // FIXME: Re-introduce this once we resolve the checkpoint splitting issue
@@ -4505,6 +4543,7 @@ impl ProtocolConfig {
             sanity_check_with_regex_reference_safety: sanity_check_with_regex_reference_safety
                 .map(|limit| limit as u128),
             deprecate_global_storage_ops,
+            disable_entry_point_signature_check: self.disable_entry_point_signature_check(),
         }
     }
 

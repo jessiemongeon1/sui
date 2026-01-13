@@ -407,14 +407,11 @@ fn select_gas(
 
                     // Skip if this withdrawal isn't for SUI
                     let WithdrawalTypeArg::Balance(coin_type) = &w.type_arg;
-                    let coin_type = coin_type.to_type_tag().ok()?;
-                    if !GAS::is_gas_type(&coin_type) {
+                    if !GAS::is_gas_type(coin_type) {
                         return None;
                     }
 
                     match w.reservation {
-                        // Skip EntireBalance since its not supported
-                        Reservation::EntireBalance => None,
                         Reservation::MaxAmountU64(value) => Some(value),
                     }
                 })

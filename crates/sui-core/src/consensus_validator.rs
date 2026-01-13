@@ -68,7 +68,7 @@ impl SuiTxValidator {
     }
 
     fn validate_transactions(&self, txs: &[ConsensusTransactionKind]) -> Result<(), SuiError> {
-        let epoch_store = self.epoch_store.clone();
+        let epoch_store = &self.epoch_store;
         let mut cert_batch = Vec::new();
         let mut ckpt_messages = Vec::new();
         let mut ckpt_batch = Vec::new();
@@ -178,7 +178,7 @@ impl SuiTxValidator {
         // All checkpoint sigs have been verified, forward them to the checkpoint service
         for ckpt in ckpt_messages {
             self.checkpoint_service
-                .notify_checkpoint_signature(&epoch_store, ckpt)?;
+                .notify_checkpoint_signature(epoch_store, ckpt)?;
         }
 
         self.metrics
@@ -196,7 +196,7 @@ impl SuiTxValidator {
         block_ref: &BlockRef,
         txs: Vec<ConsensusTransactionKind>,
     ) -> Vec<TransactionIndex> {
-        let epoch_store = self.epoch_store.clone();
+        let epoch_store = &self.epoch_store;
         if !epoch_store.protocol_config().mysticeti_fastpath() {
             return vec![];
         }
@@ -212,7 +212,7 @@ impl SuiTxValidator {
             };
 
             let tx_digest = *tx.tx().digest();
-            if let Err(error) = self.vote_transaction(&epoch_store, tx) {
+            if let Err(error) = self.vote_transaction(epoch_store, tx) {
                 debug!(?tx_digest, "Voting to reject transaction: {error}");
                 self.metrics
                     .transaction_reject_votes
@@ -986,6 +986,7 @@ mod tests {
         // UserTransaction is not allowed. Gate with disable_preconsensus_locking=false.
         let _guard = ProtocolConfig::apply_overrides_for_testing(|_, mut config| {
             config.set_disable_preconsensus_locking_for_testing(false);
+            config.set_address_aliases_for_testing(false);
             config
         });
 
