@@ -1011,33 +1011,6 @@ impl AuthorityStore {
         Ok(())
     }
 
-    #[cfg(test)]
-    pub(crate) fn reset_locks_for_test(
-        &self,
-        transactions: &[TransactionDigest],
-        objects: &[ObjectRef],
-        epoch_store: &AuthorityPerEpochStore,
-    ) {
-        for tx in transactions {
-            epoch_store.delete_signed_transaction_for_test(tx);
-            epoch_store.delete_object_locks_for_test(objects);
-        }
-
-        let mut batch = self.perpetual_tables.live_owned_object_markers.batch();
-        batch
-            .delete_batch(
-                &self.perpetual_tables.live_owned_object_markers,
-                objects.iter(),
-            )
-            .unwrap();
-        batch.write().unwrap();
-
-        let mut batch = self.perpetual_tables.live_owned_object_markers.batch();
-        self.initialize_live_object_markers_impl(&mut batch, objects, false)
-            .unwrap();
-        batch.write().unwrap();
-    }
-
     /// Return the object with version less then or eq to the provided seq number.
     /// This is used by indexer to find the correct version of dynamic field child object.
     /// We do not store the version of the child object, but because of lamport timestamp,
@@ -1486,7 +1459,6 @@ impl AuthorityStore {
             &self.perpetual_tables,
             checkpoint_store,
             rpc_index,
-            None,
             pruning_config,
             AuthorityStorePruningMetrics::new_for_test(),
             EPOCH_DURATION_MS_FOR_TESTING,
