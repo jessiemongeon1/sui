@@ -1,3 +1,7 @@
+---
+source: crates/sui-indexer-alt-graphql/src/lib.rs
+expression: sdl
+---
 """
 System transaction for creating the accumulator root.
 """
