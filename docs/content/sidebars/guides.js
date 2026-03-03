@@ -182,7 +182,8 @@ const guides = [
       id: 'guides/developer/coin/index',
     },
     items: [
-      'guides/developer/coin/currency',
+      'guides/developer/currency',
+      'guides/developer/address-balances-migration',
       'guides/developer/coin/regulated',
       'guides/developer/coin/in-game-token',
       'guides/developer/coin/loyalty',
