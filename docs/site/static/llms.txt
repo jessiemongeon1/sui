@@ -56,11 +56,6 @@
         randomness to provide builders with the tools to create immersive, transparent, and fair
         gaming experiences.
 
-## General
-
-- [Guides](https://docs.sui.io/guides.md)
-    Description: Start developing on Sui through example projects and developer guides.
-
 ## Guides
 
 - [Using the Archival
@@ -261,6 +256,12 @@
         applications.
 - [Using Nautilus](https://docs.sui.io/guides/developer/nautilus/using-nautilus.md)
     Description: Details on how to use Nautilus with the reproducible build template.
+
+## General
+
+- [References Overview](https://docs.sui.io/references.md)
+    Description: Refer to the Sui reference documentation for low-level details about different
+        features and architectures.
 
 ## References
 
@@ -524,6 +525,12 @@
     Description: Defines a Display struct which defines the way an Object should be displayed. The
         intention is to keep data as independent from its display as possible, protecting the
         development process and keeping it separate from the ecosystem agreements.
+- [Module
+    sui::display_registry](https://docs.sui.io/references/framework/sui_sui/display_registry.md)
+    Description: Struct DisplayRegistry Struct SystemMigrationCap Struct Display Struct DisplayCap
+        Struct DisplayKey Constants Function new Function newwithpublisher Function unset Function
+        set Function clear Function share Function claim Function claimwithpublisher Function
+        systemmigration Function migratev1tov2
 - [Module sui::dynamic_field](https://docs.sui.io/references/framework/sui_sui/dynamic_field.md)
     Description: In addition to the fields declared in its type definition, a Sui object can have
         dynamic fields that can be added after the object has been constructed.
@@ -792,10 +799,10 @@
 - [PTB Commands](https://docs.sui.io/references/ptb-commands.md)
     Description: This topic describes each PTB command and their format, return type, and signature.
 - [Release Notes](https://docs.sui.io/references/release-notes.md)
-    Description: --- 🔶 Testnet | Source: GitHub Release #25364: test only changes, no user impact
-        #25556: Enables the address aliases feature on mainnet. #25585: Add a new protocol version
-        to support some refactoring in execution. #25261: Error field is no longer available in
-        simulateResult and ExecutionResult.
+    Description: --- ✅ Mainnet | Source: GitHub Release #25795: Adds a new protocol version 115 to
+        normalize representation of some structures within the VM. #25556: Enables the address
+        aliases feature on mainnet. #25585: Add a new protocol version to support some refactoring
+        in execution.
 - [Rust SDK](https://docs.sui.io/references/rust-sdk.md)
     Description: The Sui Rust SDK provides Rust wrappers around the Sui API. Using the SDK, you can
         interact with Sui networks using the Rust programming language.
@@ -1088,12 +1095,6 @@
         useState(startOpen); return ( { e.preventDefault();
 -
     [TransactionKindInput](https://docs.sui.io/references/sui-api/sui-graphql/beta/reference/types/enums/transaction-kind-input.md)
-    Description: export const Bullet = () => <> export const SpecifiedBy = (props) =>
-        <>Specification⎘ export const Badge = (props) => <>{props.text} export const Details = ({
-        dataOpen, dataClose, children, startOpen = false }) => { const [open, setOpen] =
-        useState(startOpen); return ( { e.preventDefault();
--
-    [WithdrawFrom](https://docs.sui.io/references/sui-api/sui-graphql/beta/reference/types/enums/withdraw-from.md)
     Description: export const Bullet = () => <> export const SpecifiedBy = (props) =>
         <>Specification⎘ export const Badge = (props) => <>{props.text} export const Details = ({
         dataOpen, dataClose, children, startOpen = false }) => { const [open, setOpen] =

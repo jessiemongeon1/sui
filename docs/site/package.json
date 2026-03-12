@@ -40,6 +40,7 @@
     "docusaurus-plugin-copy-page-button": "^0.3.5",
     "docusaurus-theme-github-codeblock": "^2.0.2",
     "dotenv": "^16.4.5",
+    "framer-motion": "^12.35.2",
     "glob": "^11.0.3",
     "graphql": "^16.8.1",
     "graphql-config": "^5.0.3",

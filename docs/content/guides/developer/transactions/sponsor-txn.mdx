@@ -106,6 +106,19 @@ A user-proposed sponsored transaction involves the following steps:
 
 1. The user verifies and then signs `TransactionData` and sends the dual-signed transaction to Sui network through a full node or the sponsor.
 
+```mermaid
+sequenceDiagram
+    title 1. User Proposed Transaction
+
+    Note over User,Sponsor: TransactionDataNoGas {<br/>    kind: TransactionKind,<br/>    sender: SuiAddress,<br/>    expiration: TransactionExpiration,<br/>}
+
+    User->>Sponsor: Gas request with TransactionDataNoGas
+    Sponsor->>Sponsor: Check transaction, select gas,<br/>construct TransactionData, and sign
+    Sponsor->>User: TransactionData and sponsor signature
+    User->>User: Examine gas and sponsor signature,<br/>sign TransactionData
+    User->>FullNode: Submit dual-signed transaction<br/>(could be sent via the Sponsor)
+```
+
 ([swimlane link](https://swimlanes.io/d/wAcnOpA_h))
 
 ![](https://static.swimlanes.io/b090340af36c8a4af6c36d4479a4d04f.png)
