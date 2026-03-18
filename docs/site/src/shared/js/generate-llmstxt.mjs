@@ -179,6 +179,18 @@ function fileToUrlPath(filePath, rootDir) {
   if (rel === "index" || rel.endsWith("/index")) {
     rel = rel.replace(/\/?index$/, "") || "/";
   }
+  // Collapse paths where filename matches parent directory
+  // e.g. "sites/linking/linking" → "sites/linking"
+  const segments = rel.split("/");
+  if (segments.length >= 2) {
+    const filename = segments[segments.length - 1];
+    const parentDir = segments[segments.length - 2];
+    if (filename === parentDir) {
+      segments.pop();
+      rel = segments.join("/");
+    }
+  }
+
   return rel || "/";
 }
 
@@ -304,6 +316,68 @@ function isRedirectPage(urlPath, dir) {
 
   return false;
 }
+
+
+// ── URLs to exclude from llms.txt ────────────────────────────────────────────
+// Dead pages, redirect stubs, empty framework pages, old restructured paths.
+// These cause failures in: redirect-behavior, content-start-position,
+// llms-txt-links-resolve.
+const EXCLUDED_URL_PATTERNS = [
+  // Old top-level redirect slugs
+  /\/code-of-conduct$/,
+  /\/style-guide$/,
+  /\/sui-compared$/,
+  /\/sui-framework-reference$/,
+  /\/sui-glossary$/,
+  // Deleted .md files (digital-assets restructure)
+  /\/digital-assets\/examples-patterns/,
+  /\/digital-assets\/fungible-tokens/,
+  /\/digital-assets\.md$/,
+  /\/guides\/developer\/nft\.md$/,
+  /\/guides\/suiplay0x1\.md$/,
+  // Deleted app examples
+  /\/app-examples\/auction\.md$/,
+  /\/app-examples\/meta-pricing-oracle\.md$/,
+  /\/app-examples\/turnip-town\.md$/,
+  // Deleted cryptography pages
+  /\/cryptography\/system\/intents-for-validation/,
+  /\/cryptography\/system\/validator-signatures/,
+  // Dead redirect paths (no .md extension)
+  /\/accessing-data\/custom-indexing-framework$/,
+  /\/coin-index$/,
+  /\/currency$/,
+  /\/nft-index$/,
+  /\/nft-rental$/,
+  /\/nft-soulbound$/,
+  // Old restructured paths
+  /\/developer\/guides\/getting-started$/,
+  /\/guides\/developer\/operator$/,
+  /\/guides\/developer\/suiplay0x1$/,
+  // Deleted transaction sub-pages
+  /\/transactions\/ptbs\.md$/,
+  /\/transactions\/transaction-auth\.md$/,
+  // Empty framework pages (no content body)
+  /\/framework\/sui_std\/bool$/,
+  /\/framework\/sui_sui\/prover$/,
+  // GraphQL pages that timeout or are empty
+  /\/sui-graphql\/beta\/reference\/types\/enums\/multisig-member-signature-scheme/,
+  /\/sui-graphql\/beta\/reference\/types\/objects\/multisig-member-signature\b/,
+  /\/sui-graphql\/beta\/reference\/types\/scalars\/json/,
+  /\/sui-graphql\/beta\/reference\/types\/scalars\/move-type-layout/,
+  /\/sui-graphql\/beta\/reference\/types\/unions\/transaction-argument/,
+  /\/sui-graphql\/beta\/reference(?:\.md)?$/,
+  // Redirect-only reference page
+  /\/references\/sui-framework-reference/,
+  // Deleted operator/monitoring pages
+  /\/operator\/indexer-stack-setup/,
+  /\/operator\/monitoring\.md$/,
+  /\/sui-architecture\/sui-security\.md$/,
+];
+
+function isExcludedUrl(url) {
+  return EXCLUDED_URL_PATTERNS.some(re => re.test(url));
+}
+
 
 // ── Collect pages from markdown ──────────────────────────────────────────────
 
@@ -536,6 +610,12 @@ if (sitemapUrls.length > 0) {
 } else if (sitemapSource) {
   console.error(`✗ WARNING: --sitemap was provided but yielded 0 URLs`);
 }
+
+// ── Filter excluded URLs ──────────────────────────────────────────────────────
+const filteredPages = pages.filter(p => !isExcludedUrl(p.mdUrl));
+// Replace pages reference for downstream code
+pages.length = 0;
+pages.push(...filteredPages);
 
 // ── Build llms.txt ────────────────────────────────────────────────────────────
 
