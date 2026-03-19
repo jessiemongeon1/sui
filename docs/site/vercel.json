@@ -3113,11 +3113,6 @@
       "destination": "/guides/developer/nautilus/nautilus-design"
     },
     {
-      "source": "/concepts/architecture",
-      "destination": "/concepts/sui-architecture/components",
-      "permanent": true
-    },
-    {
       "source": "/concepts/tokenomics",
       "destination": "/concepts/tokenomics/tokenomics-overview",
       "permanent": true
@@ -3148,11 +3143,6 @@
       "permanent": true
     },
     {
-      "source": "/guides/developer/nft",
-      "destination": "/guides/developer/nft/nft",
-      "permanent": true
-    },
-    {
       "source": "/concepts/sui-move-concepts/packages",
       "destination": "/guides/developer/packages/package-overview",
       "permanent": true
@@ -3175,11 +3165,6 @@
     {
       "source": "/guides/developer/transactions/sign-and-send-txn",
       "destination": "/guides/developer/transactions/ptbs/sign-and-send-txn",
-      "permanent": true
-    },
-    {
-      "source": "/guides/developer/wallet-index",
-      "destination": "/guides/developer/wallets/wallet-index",
       "permanent": true
     },
     {
@@ -3210,16 +3195,6 @@
     {
       "source": "/guides/developer/advanced/security-best-practices",
       "destination": "/guides/developer/dev-cheat-sheet",
-      "permanent": true
-    },
-    {
-      "source": "/guides/developer/advanced/wallet-integrations",
-      "destination": "/guides/developer/wallets/wallet-index",
-      "permanent": true
-    },
-    {
-      "source": "/guides/developer/app-examples",
-      "destination": "/guides/developer",
       "permanent": true
     },
     {
@@ -3294,12 +3269,12 @@
     },
     {
       "source": "/guides/developer/nft/nft-rental",
-      "destination": "/guides/developer/nft/nft",
+      "destination": "/guides/developer/nft",
       "permanent": true
     },
     {
       "source": "/guides/developer/nft/nft-soulbound",
-      "destination": "/guides/developer/nft/nft",
+      "destination": "/guides/developer/nft",
       "permanent": true
     },
     {
@@ -3315,26 +3290,6 @@
     {
       "source": "/guides/developer/transactions",
       "destination": "/guides/developer/transactions/txn-overview",
-      "permanent": true
-    },
-    {
-      "source": "/references/contribute/code-of-conduct",
-      "destination": "/references/contribute",
-      "permanent": true
-    },
-    {
-      "source": "/references/contribute/contribute-to-sui-repos",
-      "destination": "/references/contribute",
-      "permanent": true
-    },
-    {
-      "source": "/references/contribute/localize-sui-docs",
-      "destination": "/references/contribute",
-      "permanent": true
-    },
-    {
-      "source": "/references/contribute/style-guide",
-      "destination": "/references/contribute",
       "permanent": true
     },
     {
