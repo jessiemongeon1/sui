@@ -20,44 +20,30 @@ for (let i = 0; i < args.length; i++) {
 
 const scriptDir = path.dirname(new URL(import.meta.url).pathname);
 const markdownDir = path.resolve(positional[0] ?? path.join(scriptDir, "../../static/markdown"));
-const baseUrl      = flags["base-url"]    ?? "";
-const outputFile   = flags["output"]      ?? path.join(scriptDir, "../../static/llms.txt");
-const siteDesc     = flags["description"] ?? "";
-const sitemapSource = flags["sitemap"]    ?? "";
-const buildDir      = flags["build-dir"]  ?? "";
+const outputFile = flags["output"] ?? path.join(scriptDir, "../../static/llms.txt");
+const baseUrl = flags["base-url"] ?? "";
 
-// ── Priority sections ─────────────────────────────────────────────────────────
-const PINNED_SECTIONS = ["Move", "Sui Developer Skills"];
+// ── Constants ────────────────────────────────────────────────────────────────
+const TARGET_CHARS = 100_000;
+const PINNED_SECTIONS = ["Move", "Top Level Navigation", "Sui Developer Skills"];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function walk(dir, results = []) {
   if (!fs.existsSync(dir)) return results;
+
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) walk(full, results);
-    else if (entry.name.endsWith(".md") || entry.name.endsWith(".mdx")) results.push(full);
-  }
-  return results;
-}
 
-function wrapLine(line, indentSpaces = 0) {
-  if (line.length <= 100) return [line];
-  const indent = " ".repeat(indentSpaces);
-  const words = line.trimStart().split(" ");
-  const lines = [];
-  let current = indent;
-
-  for (const word of words) {
-    if (current.length + word.length + 1 > 100 && current.trim().length > 0) {
-      lines.push(current.trimEnd());
-      current = indent + "    " + word + " ";
-    } else {
-      current += word + " ";
+    if (entry.isDirectory()) {
+      if (entry.name === "snippets") continue; // exclude snippets
+      walk(full, results);
+    } else if (entry.name.endsWith(".md") || entry.name.endsWith(".mdx")) {
+      results.push(full);
     }
   }
-  if (current.trim()) lines.push(current.trimEnd());
-  return lines;
+
+  return results;
 }
 
 function joinUrl(base, p) {
@@ -65,144 +51,242 @@ function joinUrl(base, p) {
   return base.replace(/\/$/, "") + "/" + p.replace(/^\//, "");
 }
 
-// ── Sorting helpers ──────────────────────────────────────────────────────────
-
-function sortPages(pages) {
-  return pages.sort((a, b) => {
-    const depthA = a.url.split("/").length;
-    const depthB = b.url.split("/").length;
-
-    if (depthA !== depthB) return depthA - depthB;
-    return a.url.localeCompare(b.url);
-  });
+function formatTitle(str) {
+  return str
+    .replace(/[-_]/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function getSortedSections(grouped) {
-  const sections = Object.keys(grouped);
+function wrapLine(line, indent = 0) {
+  if (line.length <= 100) return [line];
+  const pad = " ".repeat(indent);
+  const words = line.split(" ");
+  const out = [];
+  let cur = pad;
 
-  return [
-    ...PINNED_SECTIONS.filter(s => sections.includes(s)),
-    ...sections
-      .filter(s => !PINNED_SECTIONS.includes(s))
-      .sort((a, b) => a.localeCompare(b))
-  ];
+  for (const w of words) {
+    if (cur.length + w.length + 1 > 100) {
+      out.push(cur.trimEnd());
+      cur = pad + "    " + w + " ";
+    } else {
+      cur += w + " ";
+    }
+  }
+  if (cur.trim()) out.push(cur.trimEnd());
+  return out;
 }
 
-// ── Static skills loader ─────────────────────────────────────────────────────
+// ── Hierarchy logic ──────────────────────────────────────────────────────────
 
-function collectStaticSkills(baseDir) {
-  const skills = [];
-  const skillDirs = [
-    { name: "Sui Move", dir: path.join(baseDir, "sui-move") },
-    { name: "Sui Frontend", dir: path.join(baseDir, "sui-frontend") },
-    { name: "Sui App Development", dir: path.join(baseDir, "sui-app") },
-  ];
+function getHierarchy(relPath) {
+  const parts = relPath.replace(/\.mdx?$/, "").split("/");
 
-  for (const { name, dir } of skillDirs) {
-    if (!fs.existsSync(dir)) continue;
+  // Detect index files before popping
+  const isIndex = parts[parts.length - 1] === "index";
+  if (isIndex) parts.pop();
 
-    const files = walk(dir);
+  // Capitalize the section heading (e.g. "concepts" → "Concepts")
+  const section = formatTitle(parts[0] || "General");
+
+  // Use up to 3 path parts for subsection so guides/developer/app-examples
+  // groups under ### Guides/Developer/App Examples rather than flattening
+  // everything under ### Guides/Developer.
+  // Still requires parts.length >= 3 so flat files (section/file.md) never
+  // get a lone subsection heading.
+  const subsection = parts.length >= 3 ? parts.slice(0, 3).join("/") : null;
+
+  return { section, subsection, isIndex, parts };
+}
+
+// ── Skills loader ────────────────────────────────────────────────────────────
+
+function collectSkills() {
+  const base = path.join(scriptDir, "../../static");
+  const dirs = ["sui-move", "sui-frontend", "sui-app"];
+  const out = [];
+
+  for (const d of dirs) {
+    const full = path.join(base, d);
+    if (!fs.existsSync(full)) continue;
+
+    const files = walk(full);
 
     for (const file of files) {
-      const title = path.basename(file, path.extname(file))
-        .replace(/[-_]/g, " ")
-        .replace(/\b\w/g, c => c.toUpperCase());
+      const rel = path.relative(base, file).replace(/\\/g, "/");
+      const title = formatTitle(path.basename(file, path.extname(file)));
 
-      const rel = path.relative(baseDir, file).replace(/\\/g, "/");
-      const url = joinUrl("", rel.replace(/\.mdx?$/, ""));
-
-      skills.push({
+      out.push({
         section: "Sui Developer Skills",
-        subsection: name,
+        subsection: d,
         title,
-        url: url.endsWith("/") ? url : url + ".md",
-        description: ""
+        url: joinUrl(baseUrl, rel.replace(/\.mdx?$/, "") + ".md")
       });
     }
   }
 
-  return skills;
+  return out;
 }
 
-// ── Load markdown pages (simplified existing logic preserved) ────────────────
-
-if (!fs.existsSync(markdownDir)) {
-  console.error(`Directory not found: ${markdownDir}`);
-  process.exit(1);
-}
+// ── Collect pages ────────────────────────────────────────────────────────────
 
 const files = walk(markdownDir);
-const pages = [];
-
-for (const file of files) {
-  const rel = path.relative(markdownDir, file).replace(/\\/g, "/");
-  const url = joinUrl(baseUrl, rel.replace(/\.mdx?$/, ""));
-  const section = rel.split("/")[0] || "General";
-
-  const title = path.basename(file, path.extname(file))
-    .replace(/[-_]/g, " ")
-    .replace(/\b\w/g, c => c.toUpperCase());
-
-  pages.push({ title, url: url + ".md", section });
-}
-
-// ── Collect static skills ────────────────────────────────────────────────────
-
-const staticSkills = collectStaticSkills(path.join(scriptDir, "../../static"));
-
-// ── Group pages ──────────────────────────────────────────────────────────────
-
 const grouped = {};
 
-// Inject Move section
+// ── Move (pinned) ────────────────────────────────────────────────────────────
 grouped["Move"] = [
   {
     title: "Move Language Reference",
     url: "https://move-book.com/llms.txt",
-    description: "Authoritative Move language reference and best practices."
+    description:
+      "Complete reference for the Move programming language as used on Sui. " +
+      "Covers syntax, types, functions, structs, abilities (copy, drop, store, key), " +
+      "generics, ownership and the Sui object model, entry functions, public functions, " +
+      "module structure, error handling, events, and testing with the Move test framework. " +
+      "Includes best practices for safe and efficient contracts, object creation and transfer, " +
+      "capability patterns, witness patterns, and hot potato patterns. " +
+      "Essential reference for all Move smart contract development on Sui."
   }
 ];
 
-// Inject skills
-if (staticSkills.length > 0) {
-  grouped["Sui Developer Skills"] = staticSkills;
+// ── Skills (pinned) ──────────────────────────────────────────────────────────
+const skills = collectSkills();
+if (skills.length) grouped["Sui Developer Skills"] = skills;
+
+// ── Markdown pages ───────────────────────────────────────────────────────────
+
+for (const file of files) {
+  const rel = path.relative(markdownDir, file).replace(/\\/g, "/");
+
+  const { section, subsection, isIndex, parts } = getHierarchy(rel);
+
+  // Fix index titles: derive from the parent folder of the index file
+  let title;
+  if (isIndex) {
+    // parts has already had "index" popped — last element is the containing folder
+    // e.g. concepts/cryptography/index.md → parts = ["concepts","cryptography"] → "Cryptography Index"
+    // e.g. concepts/index.md             → parts = ["concepts"]               → "Concepts Index"
+    const parent = parts[parts.length - 1] || section;
+    title = `${formatTitle(parent)} Index`;
+  } else {
+    title = formatTitle(path.basename(file, path.extname(file)));
+  }
+
+  const cleanPath = rel.replace(/\.mdx?$/, "").replace(/\/index$/, "");
+  const url = joinUrl(baseUrl, cleanPath) + ".md";
+
+  if (!grouped[section]) grouped[section] = [];
+
+  grouped[section].push({
+    title,
+    url,
+    subsection
+  });
 }
 
-// Normal pages
-for (const page of pages) {
-  if (!grouped[page.section]) grouped[page.section] = [];
-  grouped[page.section].push(page);
+// ── Merge single-entry sections into Top Level Navigation ────────────────────
+// Also collapse single-entry subsections (lone ### headings) within each section
+
+const topLevel = [];
+
+for (const section of Object.keys(grouped)) {
+  if (PINNED_SECTIONS.includes(section)) continue;
+
+  const pages = grouped[section];
+
+  // Entire section has only one page → hoist to Top Level Navigation
+  if (pages.length === 1) {
+    topLevel.push({
+      ...pages[0],
+      title: `${formatTitle(section)} — ${pages[0].title}`,
+      subsection: null   // no subsection grouping in top-level
+    });
+    delete grouped[section];
+    continue;
+  }
+
+  // Count pages per subsection; subsections with only one page get subsection cleared
+  // so they render inline without a lone ### heading
+  const subCounts = {};
+  for (const page of pages) {
+    if (page.subsection) {
+      subCounts[page.subsection] = (subCounts[page.subsection] ?? 0) + 1;
+    }
+  }
+
+  for (const page of pages) {
+    if (page.subsection && subCounts[page.subsection] === 1) {
+      page.subsection = null;
+    }
+  }
 }
 
-// ── Build llms.txt ───────────────────────────────────────────────────────────
+if (topLevel.length) {
+  grouped["Top Level Navigation"] = topLevel;
+}
 
-const TARGET_CHARS = 100_000;
-const sectionOrder = getSortedSections(grouped);
+// ── Sorting ──────────────────────────────────────────────────────────────────
 
-function buildOutput(includeDescriptions = true, trimRatio = 1) {
+function sortSections(sections) {
+  return [
+    ...PINNED_SECTIONS.filter((s) => sections.includes(s)),
+    ...sections
+      .filter((s) => !PINNED_SECTIONS.includes(s))
+      .sort()
+  ];
+}
+
+function sortPages(pages) {
+  return pages.sort((a, b) => {
+    if (a.subsection && b.subsection && a.subsection !== b.subsection) {
+      return a.subsection.localeCompare(b.subsection);
+    }
+    return a.url.localeCompare(b.url);
+  });
+}
+
+// ── Build output ─────────────────────────────────────────────────────────────
+
+function build(ratio = 1) {
   const lines = [];
 
-  lines.push("# Documentation", "");
+  // Static header (LLM optimized)
+  lines.push("# Sui Documentation for LLMs", "");
+  lines.push(
+    "> Comprehensive reference for Sui blockchain development, including Move smart contract programming, " +
+    "Sui framework concepts, frontend integration, and fullstack application architecture. " +
+    "Designed for efficient retrieval and grounding by large language models.",
+    ""
+  );
 
-  for (const section of sectionOrder) {
-    lines.push(`## ${section}`, "");
+  const sections = sortSections(Object.keys(grouped));
 
-    const sectionPages = sortPages(grouped[section]);
+  for (const section of sections) {
+    lines.push(`## ${section}`);
 
-    let keep;
-    if (PINNED_SECTIONS.includes(section)) {
-      keep = sectionPages.length;
-    } else {
-      keep = Math.max(1, Math.floor(sectionPages.length * trimRatio));
-    }
+    const pages = sortPages(grouped[section]);
 
-    for (const { title, url, description, subsection } of sectionPages.slice(0, keep)) {
-      if (subsection) lines.push(`### ${subsection}`, "");
+    const keep = PINNED_SECTIONS.includes(section)
+      ? pages.length
+      : Math.max(1, Math.floor(pages.length * ratio));
 
-      lines.push(...wrapLine(`- [${title}](${url})`, 0));
+    let currentSub = null;
+    let firstPage = true;
 
-      if (includeDescriptions && description) {
-        lines.push(...wrapLine(`    Description: ${description}`, 4));
+    for (const page of pages.slice(0, keep)) {
+      if (page.subsection && page.subsection !== currentSub) {
+        currentSub = page.subsection;
+        // Blank line before ### to separate from preceding content,
+        // but also serves as the blank line after ## on first entry
+        lines.push("", `### ${formatTitle(currentSub)}`);
+      } else if (firstPage) {
+        // No subsection on first page — blank line after ## heading
+        lines.push("");
+      }
+      firstPage = false;
+
+      lines.push(...wrapLine(`- [${page.title}](${page.url})`, 0));
+      if (page.description) {
+        lines.push(...wrapLine(`  ${page.description}`, 2));
       }
     }
 
@@ -212,21 +296,15 @@ function buildOutput(includeDescriptions = true, trimRatio = 1) {
   return lines.join("\n");
 }
 
-// Pass 1
-let output = buildOutput(true, 1);
+// ── Trim passes ──────────────────────────────────────────────────────────────
 
-// Pass 2
-if (output.length > TARGET_CHARS) {
-  output = buildOutput(false, 1);
-}
+let output = build(1);
 
-// Pass 3 (trim non-pinned)
 if (output.length > TARGET_CHARS) {
   const ratio = TARGET_CHARS / output.length;
-  output = buildOutput(false, ratio);
+  output = build(ratio);
 }
 
-// Hard cap
 if (output.length > TARGET_CHARS) {
   output = output.slice(0, TARGET_CHARS);
 }
