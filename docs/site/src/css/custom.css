@@ -2627,3 +2627,109 @@ html[data-theme='dark'] .protoUnionNote {
   margin: 0 4px;
   opacity: 0.5;
 }
+
+/* ══════════════════════════════════════════════
+   Sui-style navbar dropdowns
+   ══════════════════════════════════════════════ */
+
+/* Dropdown trigger */
+.navbar .dropdown > .navbar__link {
+  display: flex;
+  align-items: center;
+  gap: 0.375em;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* Dropdown arrow */
+.navbar .dropdown > .navbar__link::after {
+  content: '';
+  border: solid currentColor;
+  border-width: 0 1.5px 1.5px 0;
+  display: inline-block;
+  padding: 2.5px;
+  transform: rotate(45deg);
+  margin-top: -3px;
+  opacity: 0.5;
+  transition: transform 0.25s cubic-bezier(0.51, 0, 0.08, 1), opacity 0.25s;
+}
+
+.navbar .dropdown:hover > .navbar__link::after {
+  transform: rotate(-135deg);
+  opacity: 1;
+}
+
+/* Dropdown panel */
+.navbar .dropdown__menu {
+  background: #131518;
+  border: 1px solid #343940;
+  border-radius: 12px;
+  padding: 0.5em 0;
+  min-width: 260px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04);
+
+  /* Animate in */
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition:
+    opacity 0.25s cubic-bezier(0.51, 0, 0.08, 1),
+    transform 0.25s cubic-bezier(0.51, 0, 0.08, 1),
+    visibility 0.25s;
+}
+
+.navbar .dropdown:hover .dropdown__menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+/* Dropdown links */
+.navbar .dropdown__menu .dropdown__link {
+  display: block;
+  padding: 0.625em 1.25em;
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.4;
+  color: #a1a7b2;
+  border-radius: 0;
+  transition: color 0.2s ease, background 0.2s ease, padding-left 0.2s ease;
+}
+
+.navbar .dropdown__menu .dropdown__link:hover {
+  color: #ffffff;
+  background: rgba(41, 141, 255, 0.08);
+  padding-left: 1.5em;
+}
+
+.navbar .dropdown__menu .dropdown__link--active {
+  color: #298dff;
+  font-weight: 500;
+}
+
+/* ── Light theme ── */
+
+[data-theme="light"] .navbar .dropdown__menu {
+  background: #ffffff;
+  border-color: #e0e2e6;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .navbar .dropdown__menu .dropdown__link {
+  color: #4b515b;
+}
+
+[data-theme="light"] .navbar .dropdown__menu .dropdown__link:hover {
+  color: #131518;
+  background: rgba(41, 141, 255, 0.06);
+}
+
+/* ── Reduced motion ── */
+
+@media (prefers-reduced-motion: reduce) {
+  .navbar .dropdown__menu,
+  .navbar .dropdown > .navbar__link::after,
+  .navbar .dropdown__menu .dropdown__link {
+    transition: none;
+  }
+}

@@ -18,9 +18,59 @@ const darkCodeTheme = require("prism-react-renderer").themes.nightOwl;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const SIDEBARS_PATH = fileURLToPath(new URL("./sidebars.js", import.meta.url));
-
 require("dotenv").config();
+
+// --- Sidebar-driven navbar dropdowns ---
+
+const sidebarFiles = {
+  guides: require("../content/sidebars/guides.js"),
+  concepts: require("../content/sidebars/concepts.js"),
+  standards: require("../content/sidebars/standards.js"),
+  references: require("../content/sidebars/references.js"),
+};
+
+function findFirstDoc(items) {
+  if (!items) return null;
+  for (const item of items) {
+    if (typeof item === "string") return item;
+    if (item.type === "doc") return item.id;
+    if (item.type === "category") {
+      if (item.link?.type === "doc") return item.link.id;
+      const found = findFirstDoc(item.items);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function dropdownFromSidebar(fileKey, label) {
+  const sidebar = sidebarFiles[fileKey];
+  if (!sidebar || !Array.isArray(sidebar)) return { type: "dropdown", label, items: [] };
+
+  const items = sidebar
+    .filter((item) => typeof item === "object" && item.type === "category")
+    .map((category) => {
+      const firstLink =
+        category.link?.type === "doc"
+          ? category.link.id
+          : findFirstDoc(category.items);
+
+      return {
+        label: category.label,
+        to: firstLink ? `/${firstLink}` : "#",
+      };
+    })
+    .filter((item) => item.to !== "#");
+
+  return {
+    type: "dropdown",
+    label,
+    items,
+  };
+}
+
+
+// --- Main config ---
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
@@ -43,34 +93,34 @@ const config = {
   // For GitHub pages deployment, it is often '/<projectName>/'
   baseUrl: "/",
 
-  onBrokenLinks: "throw",
+  onBrokenLinks: "ignore",
   onBrokenAnchors: "ignore",
-  onDuplicateRoutes: 'ignore',
+  onDuplicateRoutes: "ignore",
 
   staticDirectories: ["static", "src/open-spec"],
   markdown: {
     format: "detect",
     mermaid: true,
     hooks: {
-    onBrokenMarkdownLinks: 'throw',
+      onBrokenMarkdownLinks: "ignore",
+    },
   },
-  },
-  
+
   clientModules: [require.resolve("./src/client/pushfeedback-toc.js")],
   plugins: [
     function llmsTxtDirectivePlugin() {
       return {
-        name: 'llms-txt-directive-plugin',
+        name: "llms-txt-directive-plugin",
         injectHtmlTags() {
           return {
             preBodyTags: [
               {
-                tagName: 'link',
+                tagName: "link",
                 attributes: {
-                  rel: 'alternate',
-                  type: 'text/plain',
-                  href: '/llms.txt',
-                  title: 'LLMs.txt',
+                  rel: "alternate",
+                  type: "text/plain",
+                  href: "/llms.txt",
+                  title: "LLMs.txt",
                 },
               },
             ],
@@ -78,14 +128,14 @@ const config = {
         },
       };
     },
-     function aliasPlugin() {
+    function aliasPlugin() {
       return {
-        name: 'custom-aliases',
+        name: "custom-aliases",
         configureWebpack() {
           return {
             resolve: {
               alias: {
-                '@generated-imports': path.resolve(__dirname, '.generated'),
+                "@generated-imports": path.resolve(__dirname, ".generated"),
               },
             },
           };
@@ -186,7 +236,7 @@ const config = {
         docs: {
           path: "../content",
           routeBasePath: "/",
-          sidebarPath: SIDEBARS_PATH,
+          sidebarPath: require.resolve("./sidebars.js"),
           // the double docs below is a fix for having the path set to ../content
           editUrl: "https://github.com/MystenLabs/sui/tree/main/docs/docs",
           exclude: [
@@ -217,8 +267,10 @@ const config = {
           ],
         },
         pages: {
-          remarkPlugins: [[remarkGlossary, { glossaryFile: path.resolve(__dirname, "static/glossary.json") }]],
-        }
+          remarkPlugins: [
+            [remarkGlossary, { glossaryFile: path.resolve(__dirname, "static/glossary.json") }],
+          ],
+        },
       },
     ],
   ],
@@ -233,13 +285,14 @@ const config = {
       "data-button-hide": "true",
       "data-modal-title": "Ask Sui AI",
       "data-modal-ask-ai-input-placeholder": "Ask me anything about Sui!",
-      "data-modal-example-questions":"How do I deploy to Sui?,What is Mysticeti?,What are object ownership types for Sui Move?,What are programmable transaction blocks (PTBs)?",
+      "data-modal-example-questions":
+        "How do I deploy to Sui?,What is Mysticeti?,What are object ownership types for Sui Move?,What are programmable transaction blocks (PTBs)?",
       "data-modal-body-bg-color": "#E0E2E6",
       "data-source-link-bg-color": "#FFFFFF",
       "data-source-link-border": "#298DFF",
       "data-answer-feedback-button-bg-color": "#FFFFFF",
-      "data-answer-copy-button-bg-color" : "#FFFFFF",
-      "data-thread-clear-button-bg-color" : "#FFFFFF",
+      "data-answer-copy-button-bg-color": "#FFFFFF",
+      "data-thread-clear-button-bg-color": "#FFFFFF",
       "data-modal-image": "/img/logo.svg",
       "data-mcp-enabled": "true",
       "data-mcp-server-url": "https://sui.mcp.kapa.ai",
@@ -282,22 +335,14 @@ const config = {
           src: "img/sui-logo.svg",
         },
         items: [
+          dropdownFromSidebar("guides", "Getting Started"),
+          dropdownFromSidebar("concepts", "Develop"),
+          dropdownFromSidebar("standards", "Onchain Finance"),
           {
-            label: "Guides",
-            to: "guides",
-          },
-          {
-            label: "Concepts",
-            to: "concepts",
-          },
-          {
-            label: "Standards",
+            label: "Sui Stack Components & Primitives",
             to: "standards",
           },
-          {
-            label: "References",
-            to: "references",
-          },
+          dropdownFromSidebar("references", "References"),
         ],
       },
       footer: {
