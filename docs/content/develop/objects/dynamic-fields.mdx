@@ -95,25 +95,6 @@ The `<Value>` type passed to `borrow` and `borrow_mut` must match the type of th
 
 You must access dynamic object field values through these APIs. A transaction that attempts to use those objects as inputs (by value or by reference), is rejected for having invalid inputs.
 
-### Convenience access functions
-
-In addition to `borrow` and `borrow_mut`, the `sui::dynamic_field` (and `sui::dynamic_object_field`) modules provide several higher-level access functions:
-
-- **`borrow_or_add`**: Returns an immutable reference to the field value at `name`, inserting `default` first if no such field exists. This avoids the abort that `borrow` would cause on a missing field.
-- **`borrow_mut_or_add`**: Returns a mutable reference to the field value at `name`, inserting `default` first if no such field exists. This avoids the abort that `borrow_mut` would cause on a missing field.
-- **`get_do`**: If a field at `name` exists, borrows it immutably and calls the provided function on it; otherwise does nothing.
-- **`get_mut_do`**: If a field at `name` exists, borrows it mutably and calls the provided function on it; otherwise does nothing.
-- **`get_fold`**: Takes an initial accumulator value and, if a field at `name` exists, passes both the field (borrowed immutably) and the accumulator to a function returning a result; otherwise returns the initial value unchanged.
-- **`get_mut_fold`**: Like `get_fold` but borrows the field mutably.
-
-These functions are useful for avoiding explicit existence checks and simplifying patterns where a default value or a no-op is appropriate when a field is absent.
-
-:::info
-
-`sui::dynamic_object_field` has equivalent versions of all these convenience functions, consistent with its equivalents for `borrow`, `borrow_mut`, and `remove`.
-
-:::
-
 ## Removing a dynamic field
 
 Similar to unwrapping an object held in a regular field, you can remove a dynamic field, exposing its value:
@@ -131,6 +112,18 @@ The value that is returned can be interacted with just like any other value. For
 <ImportContent source="examples/move/dynamic_fields/sources/example.move" mode="code" fun="reclaim_child" noComments />
 
 A transaction that attempts to remove a non-existent field, or a field with a different `Value` type, fails.
+
+:::note Checking existence and optional removal
+
+Use `sui::dynamic_field::exists` to check whether a field with a given name and value type exists on an object before accessing or removing it. To remove a field without aborting if it doesn't exist, use `sui::dynamic_field::remove_opt`, which returns `Option<Value>`.
+
+:::caution Deprecated functions
+The previously used `exists_` and `remove_if_exists` functions are deprecated in favor of `exists` and `remove_opt`, respectively.
+:::
+
+`sui::dynamic_object_field` provides the same `exists` and `remove_opt` functions for object fields.
+
+:::
 
 ## Deleting an object with dynamic fields
 
