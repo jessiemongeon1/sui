@@ -1,0 +1,99 @@
+name: Docs Style Guide Audit
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  diff:
+    name: Detect doc changes
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    outputs:
+      isDoc: ${{ steps.diff.outputs.isDoc }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # pin@v6.0.2
+      - name: Detect Changes
+        uses: './.github/actions/diffs'
+        id: diff
+
+  style-guide-audit:
+    name: Style guide audit
+    needs: diff
+    if: needs.diff.outputs.isDoc == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # pin@v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # pin@v6.2.0
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install anthropic requests
+
+      - name: Get changed mdx files
+        id: changed-files
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get list of changed .mdx files in this PR
+          changed=$(gh pr diff ${{ github.event.pull_request.number }} --name-only | grep '\.mdx$' || true)
+          if [ -z "$changed" ]; then
+            echo "files=" >> $GITHUB_OUTPUT
+            echo "No .mdx files changed"
+          else
+            # Write to a file for the audit script to read
+            echo "$changed" > /tmp/changed_mdx_files.txt
+            echo "files=/tmp/changed_mdx_files.txt" >> $GITHUB_OUTPUT
+            echo "Changed .mdx files:"
+            echo "$changed"
+          fi
+
+      - name: Run style guide audit
+        if: steps.changed-files.outputs.files != ''
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CHANGED_FILES: /tmp/changed_mdx_files.txt
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: python docs/scripts/style-guide-audit.py
+
+      - name: Post review comment
+        if: steps.changed-files.outputs.files != '' && always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -f /tmp/audit_review.md ]; then
+            # Check if we already have an audit comment on this PR
+            marker="<!-- style-guide-audit -->"
+            existing=$(gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+              --paginate --jq ".[] | select(.body | contains(\"$marker\")) | .id" | head -1)
+
+            body=$(cat /tmp/audit_review.md)
+
+            if [ -n "$existing" ]; then
+              gh api repos/${{ github.repository }}/issues/comments/$existing \
+                -X PATCH -f body="$body"
+              echo "Updated existing review comment"
+            else
+              gh pr comment ${{ github.event.pull_request.number }} --body "$body"
+              echo "Posted new review comment"
+            fi
+          else
+            echo "No audit results to post"
+          fi
