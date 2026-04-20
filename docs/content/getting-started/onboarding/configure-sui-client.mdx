@@ -4,6 +4,16 @@ description: The Sui client configuration specifies which network to connect to 
 keywords: [ sui client, sui configuration, client.yaml, client config, local config, configure tooling, configure sui client, configure sui, config sui ]
 pagination_prev: null
 pagination_next: null
+doc_goal:
+  audience: Developers setting up the Sui CLI for the first time
+  outcome: Can configure the Sui client to connect to any network and verify the connection
+  success_criteria:
+    - Reader can generate a valid client.yaml with the correct active environment in under 5 minutes
+    - All CLI commands produce the documented output on a fresh install
+    - Switching between Testnet, Devnet, and Localnet is covered with exact commands
+  non_goals:
+    - Advanced client.yaml customization
+    - Programmatic RPC configuration via SDKs
 ---
 
 The Sui client configuration specifies which network to connect to and which address to send transactions.

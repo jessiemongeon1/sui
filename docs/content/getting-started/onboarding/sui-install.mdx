@@ -4,6 +4,16 @@ description: Install the Sui framework and its required prerequisites on your sy
 keywords: [ install sui, how to install sui, install sui cli, interact with sui networks, connect to sui networks, sui command line interface ]
 pagination_prev: null
 pagination_next: null
+doc_goal:
+  audience: Developers installing Sui for the first time on any major OS
+  outcome: Can install the Sui CLI and verify it works by running a basic command
+  success_criteria:
+    - Primary install method (suiup) works on Linux, macOS, and Windows with a single command
+    - Alternative methods (Homebrew, Chocolatey) are documented for each relevant OS
+    - Reader can run `sui --version` successfully within 5 minutes of starting
+  non_goals:
+    - Installing from source or binaries (covered in dedicated pages)
+    - IDE or editor plugin setup
 ---
 
 Sui is a scalable and performant layer-1 blockchain that is home to a complete stack of native primitives ideal for building decentralized applications. Such primitives, such as those for [encryption](https://seal-docs.wal.app/UsingSeal/), [data storage](https://docs.wal.app/usage/setup), verification, and access control, provide developers with every piece of the application stack without needing to use layer-2 chains or offchain solutions. 

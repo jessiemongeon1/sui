@@ -1,0 +1,179 @@
+---
+title: Install Sui
+description: Install the Sui framework and its required prerequisites on your system.
+keywords: [ install sui, how to install sui, install sui cli, interact with sui networks, connect to sui networks, sui command line interface ]
+pagination_prev: null
+pagination_next: null
+doc_goal:
+  audience: Developers installing Sui for the first time on any major OS
+  outcome: Can install the Sui CLI and verify it works by running a basic command
+  success_criteria:
+    - Primary install method (suiup) works on Linux, macOS, and Windows with a single command
+    - Alternative methods (Homebrew, Chocolatey) are documented for each relevant OS
+    - Reader can run `sui --version` successfully within 5 minutes of starting
+  non_goals:
+    - Installing from source or binaries (covered in dedicated pages)
+    - IDE or editor plugin setup
+---
+
+Sui is a scalable and performant layer-1 blockchain that is home to a complete stack of native primitives ideal for building decentralized applications. Such primitives, such as those for [encryption](https://seal-docs.wal.app/UsingSeal/), [data storage](https://docs.wal.app/usage/setup), verification, and access control, provide developers with every piece of the application stack without needing to use layer-2 chains or offchain solutions. 
+
+In contrast to other chains, Sui uses an [object-centric model](/develop/sui-architecture/object-model), where every item on the network is an object. [Transactions](/develop/transactions/txn-overview) use objects as input, which mutate an existing object or create new objects. Each object has a unique onchain ID.
+
+To create objects, submit transactions, and start building an application on Sui, first you must install Sui. This installation includes the [Sui CLI](/references/cli), a tool that creates and manages address balances, builds and publishes smart contracts, and queries information from the network. 
+
+<Tabs className="tabsHeadingCentered--small">
+<TabItem value="prereq" label="Prerequisites">
+
+- [x] Have a machine with one of the following supported operating systems:
+    - Linux: Ubuntu version 22.04 (Jammy Jellyfish) or newer
+    - macOS: macOS Monterey or newer
+    - Microsoft Windows: Windows 10 or 11
+
+</TabItem>
+</Tabs>
+
+## Quick install 
+
+You use the Sui CLI to interact with the Sui network, deploy packages, and manage assets. To install the Sui CLI, you can use [`suiup`](https://github.com/MystenLabs/suiup).
+
+[`suiup`](https://github.com/MystenLabs/suiup) is the most effective installation method, as it allows you to easily install and switch between different versions of not only the Sui CLI but also other Sui stack components like [`walrus`](https://docs.wal.app/usage/setup) and [`mvr`](https://github.com/MystenLabs/mvr). 
+
+Alternative quick install instructions for [Homebrew](https://brew.sh/) or [Chocolately](https://chocolatey.org/) do not support installing other Sui stack components. You need to install other components through their individual binaries if you'd like to use them in the future. 
+
+:::caution 
+
+Installations using Homebrew or Chocolatey might take several minutes if you do not have any of the [Sui prerequisites](/getting-started/onboarding/install-source) installed. Using `suiup` is often much faster and highly recommended.
+
+:::
+
+<Tabs groupId="install-tool">
+
+<TabItem label="suiup" value="suiup">
+
+First, install `suiup`:
+
+```sh
+$ curl -sSfL \
+  https://raw.githubusercontent.com/Mystenlabs/suiup/main/install.sh \
+  | sh
+```
+
+Then, install Sui:
+
+```sh
+$ suiup install sui@testnet
+```
+
+For alternative installation methods, refer to the [`suiup` repository](https://github.com/MystenLabs/suiup).
+
+:::danger
+
+Installing Sui with `suiup` does not configure the client. To use `sui` commands, you must [configure the Sui client](/getting-started/onboarding/configure-sui-client).
+
+To confirm that Sui installed correctly:
+
+1. Open a terminal or console
+2. Type `sui --version` and press Enter
+
+If you receive a "command not found" error, verify the Sui binaries directory is in your `PATH` environment variable.
+
+:::
+
+</TabItem>
+
+<TabItem label="Homebrew" value="brew">
+
+You must have [Homebrew](https://brew.sh/) installed before running the following command:
+
+```sh
+$ brew install sui
+```
+
+To confirm that Sui installed correctly:
+
+1. Open a terminal or console
+2. Type `sui --version` and press Enter
+
+If you receive a "command not found" error, verify the Sui binaries directory is in your `PATH` environment variable.
+
+
+</TabItem>
+
+<TabItem label="Chocolatey" value="choco">
+
+You must have [Chocolately](https://chocolatey.org/) installed before running the following command:
+
+```sh
+$ choco install sui
+```
+
+Find more [versions of Sui for Windows](https://community.chocolatey.org/packages/sui) on the Chocolatey community website.
+
+To confirm that Sui installed correctly:
+
+1. Open a terminal or console
+2. Type `sui --version` and press Enter
+
+If you receive a "command not found" error, verify the Sui binaries directory is in your `PATH` environment variable.
+
+</TabItem>
+
+</Tabs>
+
+The quick install is suitable for most use cases. For those wanting more control over the installation process, you can [install from source](/getting-started/onboarding/install-source) or [install binaries](/getting-started/onboarding/install-binaries). 
+
+If Sui is already installed from a previous development environment, be sure to upgrade to the [latest version](/getting-started/onboarding/install-binaries).
+
+:::info Looking for a project to clone?
+
+Before you can create and publish a smart contract, you must [configure a Sui client](/getting-started/onboarding/configure-sui-client) and [obtain SUI tokens](/getting-started/onboarding/get-coins).
+
+Then, you can [create a "Hello, World!" example](/getting-started/onboarding/hello-world).
+
+:::
+
+## Installation details 
+
+### `suiup` installation details 
+
+Refer to the `suiup` repository's [README](https://github.com/mystenLabs/suiup?tab=readme-ov-file#paths-used-by-the-suiup-tool) for information regarding installation files and their locations. 
+
+
+### Default configuration file
+
+Regardless of whether you used `suiup`, Homebrew, or Chocolately, Sui stores a primary configuration in the `~/.sui/sui_config/client.yaml` file. This file defines settings and preferences for your environment, such as:
+
+- Network environment details for Mainnet, Testnet, Devnet, and Localnet networks.
+
+- Active environment, which specifies the network the CLI commands target.
+
+- Active address, which specifies the Sui address the CLI uses for transactions and queries.
+
+- Keystore location, which specifies where Sui stores your address' private keys.
+
+<div className="next-steps-module">
+  <div className="next-steps-header">
+    <h3>Next steps</h3>
+  </div>
+  <div className="next-steps-grid">
+    <Card className="plausible-event-name=install+client+button"
+      title="Configure a Sui Client" 
+      href="/getting-started/onboarding/configure-sui-client"
+    >
+      Configure a Sui client to get a Sui address and connect to Testnet.
+    </Card>
+    <Card className="plausible-event-name=install+faucet+button"
+      title="Get SUI from Faucet" 
+      href="/getting-started/onboarding/get-coins"
+    >
+      Obtain SUI from a faucet to deploy packages on Testnet.
+    </Card>
+        <Card className="plausible-event-name=install+hello+button"
+      title="Hello, World!" 
+      href="/getting-started/onboarding/hello-world"
+    >
+      Clone the "Hello, World!" project.
+    </Card>
+  </div>
+</div>

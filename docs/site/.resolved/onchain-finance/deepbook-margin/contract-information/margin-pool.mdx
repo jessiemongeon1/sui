@@ -1,0 +1,150 @@
+---
+title: Margin Pool
+description: Learn about margin pools and how they enable liquidity for leveraged trading.
+keywords:
+  [
+    margin pool,
+    marginpool,
+    liquidity pool,
+    lending pool,
+    supply,
+    borrow,
+    interest rate,
+    utilization rate,
+    deepbook margin,
+  ]
+---
+
+The `MarginPool` is a shared object that manages liquidity for a specific asset, enabling lenders to supply assets and margin traders to borrow them. Each margin pool tracks supply and borrow positions, accrues interest over time, and enforces risk parameters to maintain system health.
+
+Margin pools use a shares-based accounting system where suppliers receive shares representing their proportion of the total supply. Interest accrues continuously, increasing the value of these shares over time. Borrowers can only borrow from pools that have enabled their specific DeepBook trading pool.
+
+## API
+
+Following are the different public functions that the `MarginPool` exposes.
+
+<details>
+<summary>Mint a `SupplierCap`</summary>
+
+Create a new `SupplierCap` that can be used to supply and withdraw from margin pools. One `SupplierCap` can be used across multiple margin pools.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook_margin/sources/margin_pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>Supply liquidity</summary>
+
+Supply assets to the margin pool to earn interest. Returns the total supply shares owned by the supplier after this operation.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook_margin/sources/margin_pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>Withdraw liquidity</summary>
+
+Withdraw supplied assets from the margin pool. You can specify an exact amount or withdraw all available shares.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook_margin/sources/margin_pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>Read endpoints</summary>
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook_margin/sources/margin_pool.move — fetch at runtime] -->
+
+</details>
+
+## Events
+
+<details>
+<summary>`MarginPoolCreated`</summary>
+
+Emitted when a new margin pool is created.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook_margin/sources/margin_pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>`DeepbookPoolUpdated`</summary>
+
+Emitted when a DeepBook pool is enabled or disabled for lending.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook_margin/sources/margin_pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>`InterestParamsUpdated`</summary>
+
+Emitted when interest rate parameters are updated.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook_margin/sources/margin_pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>`MarginPoolConfigUpdated`</summary>
+
+Emitted when margin pool configuration is updated.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook_margin/sources/margin_pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>`SupplierCapMinted`</summary>
+
+Emitted when a new supplier cap is minted.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook_margin/sources/margin_pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>`AssetSupplied`</summary>
+
+Emitted when assets are supplied to a margin pool.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook_margin/sources/margin_pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>`AssetWithdrawn`</summary>
+
+Emitted when assets are withdrawn from a margin pool.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook_margin/sources/margin_pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>`MaintainerFeesWithdrawn`</summary>
+
+Emitted when maintainer fees are withdrawn.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook_margin/sources/margin_pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>`ProtocolFeesWithdrawn`</summary>
+
+Emitted when protocol fees are withdrawn.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook_margin/sources/margin_pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>`ProtocolFeesIncreased`</summary>
+
+Emitted when protocol fees are accrued from interest payments.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook_margin/sources/margin_pool/protocol_fees.move — fetch at runtime] -->
+
+</details>

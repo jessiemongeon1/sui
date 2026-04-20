@@ -1,0 +1,236 @@
+---
+title: Query the Pool
+description: A Pool is a shared object that represents a unique market pair, such as SUI/USDC. 
+keywords: [ deepbook, deepbookv3, pool, balancemanager, tradeproof, query a pool, query pool, whitelist status, base quantity against quote, quote quantity against base, DEEP fees, input token fees, quote quantity against quote or base, check fee required, reserve mid price, reserve pool mid price ]
+---
+
+The `Pool` shared object represents a market, such as a SUI/USDC market. That `Pool` is the only one representing that unique pairing (SUI/USDC) and the pairing is the only member of that particular `Pool`. See [DeepBookV3 Design](/onchain-finance/deepbookv3/design#pool) to learn more about the structure of pools.
+
+To perform trades, you pass a `BalanceManager` and `TradeProof` into the relevant `Pool`. Unlike `Pool`s, `BalanceManager` shared objects can contain any type of token, such that the same `BalanceManager` can access multiple `Pool`s to interact with many different trade pairings. See [BalanceManager](/onchain-finance/deepbookv3/contract-information/balance-manager) to learn more.
+
+## API
+
+DeepBookV3 exposes a set of endpoints that can be used to query any pool.
+
+<details>
+<summary>Check whitelist status</summary>
+
+Accessor to check whether the pool is whitelisted.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>Check quote quantity against base (DEEP fees)</summary>
+
+Dry run to determine the quote quantity out for a given base quantity. Uses DEEP as fee.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>Check base quantity against quote (DEEP fees)</summary>
+
+Dry run to determine the base quantity out for a given quote quantity. Uses DEEP as fee.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>Check quote quantity against base (input token fees)</summary>
+
+Dry run to determine the quote quantity out for a given base quantity. Uses input token as fee.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>Check base quantity against quote (input token fees)</summary>
+
+Dry run to determine the base quantity out for a given quote quantity. Uses input token as fee.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>Check quote quantity against quote or base</summary>
+
+Dry run to determine the quantity out for a given base or quote quantity. Only one out of base or quote quantity should be nonzero. Returns the (`base_quantity_out`, `quote_quantity_out`, `deep_quantity_required`).
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>Check fee required</summary>
+
+Returns the DEEP required for an order if it's a taker or maker given quantity and price (`deep_required_taker`, `deep_required_maker`).
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>Retrieve mid price for a pool</summary>
+
+Returns the mid price of the pool.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>Retrieve order IDs</summary>
+
+Returns the `order_id` for all open orders for the `balance_manager` in the pool.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>Retrieve prices and quantities for an order book</summary>
+
+Returns vectors holding the prices (`price_vec`) and quantities (`quantity_vec`) for the level2 order book. The `price_low` and `price_high` are inclusive, all orders within the range are returned. `is_bid` is `true` for bids and `false` for asks.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+Returns vectors holding the prices (`price_vec`) and quantities (`quantity_vec`) for the level2 order book. `ticks` are the maximum number of ticks to return starting from best bid and best ask. (`bid_price`, `bid_quantity`, `ask_price`, `ask_quantity`) are returned as four vectors. The price vectors are sorted in descending order for bids and ascending order for asks.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>Retrieve balances</summary>
+
+Get all balances held in this pool.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>Retrieve pool ID</summary>
+
+Get the ID of the pool given the asset types.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>Retrieve order information</summary>
+
+Returns the `Order` struct using the order ID.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+Returns a vector of `Order` structs using a vector of order IDs.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+Returns a vector of `Order` structs for all orders that belong to a `BalanceManager` in the pool.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>Retrieve locked balance</summary>
+
+Returns the locked balance for a `BalanceManager` in the pool (`base_quantity`, `quote_quantity`, `deep_quantity`).
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>Retrieve pool parameters</summary>
+
+Returns the trade parameters for the pool (`taker_fee`, `maker_fee`, `stake_required`).
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+Returns the trade parameters for the next epoch for the currently leading proposal of the pool (`taker_fee`, `maker_fee`, `stake_required`).
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+Returns the quorum needed to pass proposal in the current epoch.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+Returns the book parameters for the pool (`tick_size`, `lot_size`, `min_size`).
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+Returns the `OrderDeepPrice` struct for the pool, which determines the conversion for DEEP fees.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>Retrieve reverse quantity calculations</summary>
+
+Dry run to determine the base quantity needed to receive a given quote quantity out.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+Dry run to determine the quote quantity needed to receive a given base quantity out.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>Pre-trade validation</summary>
+
+Check if a limit order can be placed with the given parameters. Returns `true` if the order can be placed, `false` otherwise.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+Check if a market order can be placed with the given parameters. Returns `true` if the order can be placed, `false` otherwise.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+Validate limit order parameters and return detailed error information if invalid.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+Validate market order parameters and return detailed error information if invalid.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>Pool status</summary>
+
+Check if the pool is a stable pool (uses stable curve pricing).
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+Check if the pool is registered in the registry.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+</details>
+
+<details>
+<summary>Account queries</summary>
+
+Check if an account exists for a `BalanceManager` in the pool.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+Get the `Account` struct for a `BalanceManager` in the pool.
+
+<!-- [external GitHub content: MystenLabs/deepbookv3/packages/deepbook/sources/pool.move — fetch at runtime] -->
+
+</details>
