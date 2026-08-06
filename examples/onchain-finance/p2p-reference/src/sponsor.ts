@@ -1,54 +1,63 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { Transaction } from '@mysten/sui/transactions';
+import { createSponsor } from '@mysten-incubation/sponsor';
 import { SuiGrpcClient } from '@mysten/sui/grpc';
-import { toBase64, fromBase64 } from '@mysten/sui/utils';
-import type { Keypair } from '@mysten/sui/cryptography';
+import { Transaction } from '@mysten/sui/transactions';
+import type { Signer } from '@mysten/sui/cryptography';
 
 declare const tx: Transaction;
-declare const signer: Keypair;
+declare const signer: Signer;
+declare const sponsorSigner: Signer;
+declare const senderAddress: string;
+
 const client = new SuiGrpcClient({
 	baseUrl: 'https://fullnode.testnet.sui.io:443',
 	network: 'testnet',
 });
 
+// docs::#create-sponsor
+// Server side: the sponsor pays gas from its SUI address balance and
+// validates every transaction against a pluggable policy before co-signing.
+const sponsor = createSponsor({
+	signer: sponsorSigner,
+	client,
+});
+// docs::/#create-sponsor
+
 // docs::#sponsor-flow
-// Build transaction kind bytes (without gas)
-const txKindBytes = await tx.build({ client, onlyTransactionKind: true });
+// Client side: build the transaction with the sponsor as gas owner,
+// paying from the sponsor's address balance (no specific gas coins).
+tx.setSender(senderAddress);
+tx.setGasOwner(sponsor.address);
+tx.setGasPayment([]);
+const bytes = await tx.build({ client });
 
-// Request sponsorship
-const sponsorResponse = await fetch('https://your-gas-station.com/sponsor', {
-	method: 'POST',
-	headers: { 'Content-Type': 'application/json' },
-	body: JSON.stringify({ txBytes: toBase64(txKindBytes), sender: signer.getPublicKey().toSuiAddress() }),
+// The user signs the final bytes.
+const { signature: userSignature } = await signer.signTransaction(bytes);
+
+// Server side: the sponsor validates, co-signs, and executes.
+const result = await sponsor.signAndExecuteTransaction({
+	transaction: bytes,
+	userSignature,
 });
 
-const { txBytes: sponsoredBytes, sponsorSignature, gasCoinId } = await sponsorResponse.json();
-
-// Sign with the user's key
-const finalBytes = fromBase64(sponsoredBytes);
-const userSig = await signer.signTransaction(finalBytes);
-
-// Submit with both signatures
-const result = await client.executeTransaction({
-	transaction: finalBytes,
-	signatures: [userSig.signature, sponsorSignature],
-});
-
-// Confirm to the gas station so it can release the coin.
-// Always confirm, even on failure, because gas is still charged.
-const txResult = result.Transaction ?? result.FailedTransaction;
-await fetch('https://your-gas-station.com/sponsor/confirm', {
-	method: 'POST',
-	headers: { 'Content-Type': 'application/json' },
-	body: JSON.stringify({ gasCoinId, digest: txResult.digest }),
-});
+// Three outcomes, not two:
+switch (result.$kind) {
+	case 'Rejected':
+		// A validator declined; nothing was signed or executed.
+		throw new Error(result.issues.map((issue) => issue.message).join('; '));
+	case 'FailedTransaction':
+		// Executed on-chain but aborted; the sponsor still paid gas.
+		throw new Error(`Payment failed: ${result.FailedTransaction.status.error?.message}`);
+	case 'Transaction':
+		console.log('Payment confirmed:', result.Transaction.digest);
+}
 // docs::/#sponsor-flow
 
-// docs::#gasless-submit
-const gaslessResult = await client.signAndExecuteTransaction({
+// docs::#direct-submit
+const directResult = await client.signAndExecuteTransaction({
 	transaction: tx,
 	signer,
 });
-// docs::/#gasless-submit
+// docs::/#direct-submit
