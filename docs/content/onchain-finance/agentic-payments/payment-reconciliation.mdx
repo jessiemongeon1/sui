@@ -2,7 +2,7 @@
 title: Payment History and Reconciliation
 description: >-
   Track, query, and reconcile agent payment history using gRPC queries,
-  event subscriptions, and custom indexer pipelines.
+  checkpoint subscriptions, and custom indexer pipelines.
 keywords:
   - payment history
   - reconciliation
@@ -22,7 +22,7 @@ goal:
       label: Has required frontmatter fields
     - min_words: 300
       label: Needs more content depth
-    - pattern: '```'
+    - pattern: 'ImportContent'
       min: 1
       label: Has code examples
     - has_questions: true
@@ -39,72 +39,46 @@ questions:
   - How do I reconcile agent payments on Sui?
   - How do I detect missed or duplicate payments on Sui?
 answer: >-
-  Query transaction history via GraphQL or inspect individual transactions
-  with the gRPC client. Compare local payment records against onchain data
-  to detect missed, duplicate, or failed payments.
+  List the agent's transactions by sender with the gRPC client's
+  listTransactions method, then compare local payment records against
+  onchain balance changes to detect missed, duplicate, or failed payments.
 ---
 
 Autonomous agents can lose track of payments due to crashes, network timeouts, or retry failures. Payment reconciliation compares the agent's local payment records against onchain transaction history to detect missed, duplicate, or failed payments.
 
 ## Querying transaction history
 
-The gRPC API does not provide a "list transactions by sender" endpoint. Instead, use one of these approaches to build a payment history.
+List the agent's finalized transactions with the gRPC client's `listTransactions` method, filtered by sender:
 
-### GraphQL query
+<ImportContent source="examples/onchain-finance/payment-reconciliation/src/reconcile.ts" mode="code" tag="list-transactions" />
 
-Query transactions by sender address using GraphQL:
+Results are cursor-paginated in ledger order. Persist `endCursor` between reconciliation runs so each pass scans only transactions added since the last one.
 
-```graphql
-query AgentTransactions($sender: SuiAddress!, $cursor: String) {
-  address(address: $sender) {
-    transactions(first: 50, after: $cursor, relation: SENT) {
-      nodes {
-        digest
-        effects {
-          balanceChangesJson
-        }
-      }
-      pageInfo {
-        hasNextPage
-        endCursor
-      }
-    }
-  }
-}
-```
+## Verifying individual payments
 
-`balanceChangesJson` returns the full list as a JSON array, avoiding pagination that `balanceChanges { nodes { ... } }` requires for transactions with many balance changes.
+A digest in the sender's history proves the transaction is final; it does not prove the payment succeeded or paid the right party. Fetch the transaction's balance changes and match them against the payment the agent intended to make:
 
-### Inspecting individual transactions
+<ImportContent source="examples/onchain-finance/payment-reconciliation/src/reconcile.ts" mode="code" tag="verify-payment" />
 
-When you have a list of transaction digests (from your local database or a GraphQL query), use the gRPC client to inspect each one:
-
-<ImportContent source="examples/onchain-finance/payment-reconciliation/src/reconcile.ts" mode="code" tag="extract-payment" />
-
-Use this extraction step when your reconciliation job already knows which transaction digests to inspect.
+Balance changes report each address's net change per coin type, so a payment transaction also produces entries that are not payments: the sender's own debit and storage rebates credited back to the sender. Matching on the expected recipient and coin type avoids misclassifying those artifacts as payments.
 
 ## Real-time monitoring with checkpoint subscriptions
 
-The gRPC `SubscriptionService.SubscribeCheckpoints` streams new checkpoints as the network finalizes them. Process each checkpoint's transactions to detect payments in real time:
+The gRPC `SubscriptionService.SubscribeCheckpoints` streams checkpoints as the network finalizes them. Filter the stream to checkpoints that contain the agent's transactions and feed each matching transaction into the reconciliation state:
 
-```typescript
-const stream = client.subscriptionService.subscribeCheckpoints({});
+<ImportContent source="examples/onchain-finance/payment-reconciliation/src/reconcile.ts" mode="code" tag="subscribe-checkpoints" />
 
-for await (const checkpoint of stream.responses) {
-  // Each checkpoint contains transaction digests.
-  // Fetch and inspect transactions relevant to your agent.
-}
-```
+Subscriptions always begin at the current tip of the chain and do not support resumption. Persist the last received cursor; after a disconnect, replay the missed range with `LedgerService.ListCheckpoints` (same filter, `startCheckpoint` of cursor + 1) before re-subscribing.
 
 For event-level filtering, use a [custom indexer pipeline](/develop/accessing-data/custom-indexer) built on the `sui-indexer-alt` framework. The indexer processes checkpoints and writes matching events to your database.
 
 ## Reconciliation algorithm
 
-Compare the agent's local payment database against onchain history:
+Compare the agent's local payment records against the sender's finalized onchain history:
 
 <ImportContent source="examples/onchain-finance/payment-reconciliation/src/reconcile.ts" mode="code" tag="reconcile-algorithm" />
 
-Run the reconciliation pass on a schedule and alert when local records diverge from onchain results.
+Run the reconciliation pass on a schedule and alert on discrepancies that persist across runs.
 
 ## Production reconciliation
 
