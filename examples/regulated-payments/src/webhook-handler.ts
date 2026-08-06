@@ -8,7 +8,12 @@ const suiClient = new SuiGrpcClient({
 	baseUrl: 'https://fullnode.mainnet.sui.io:443',
 	network: 'mainnet',
 });
-const webhookSecret = process.env.PROVIDER_WEBHOOK_SECRET!;
+if (!process.env.PROVIDER_WEBHOOK_SECRET) {
+	// Fail loud at startup: an unset secret would otherwise verify HMACs
+	// against an empty key.
+	throw new Error('PROVIDER_WEBHOOK_SECRET is not set');
+}
+const webhookSecret = process.env.PROVIDER_WEBHOOK_SECRET;
 
 // Verifies an HMAC-SHA256 signature over the raw request body. Check your
 // provider's documentation for the exact scheme: providers differ in encoding
@@ -31,9 +36,18 @@ async function verifyWebhookSignature(
 		['verify'],
 	);
 
+	let signatureBytes: Uint8Array<ArrayBuffer>;
+	try {
+		signatureBytes = fromHex(signature);
+	} catch {
+		// A malformed signature header (non-hex characters, odd length) is an
+		// authentication failure, not a server error.
+		return false;
+	}
+
 	// `crypto.subtle.verify` compares the expected and provided MACs in
 	// constant time, avoiding timing side channels.
-	return crypto.subtle.verify('HMAC', key, fromHex(signature), new TextEncoder().encode(rawBody));
+	return crypto.subtle.verify('HMAC', key, signatureBytes, new TextEncoder().encode(rawBody));
 }
 
 const complianceLogger = {
@@ -41,7 +55,8 @@ const complianceLogger = {
 };
 
 const ledger = {
-	creditUser: async (_userId: string, _amount: string, _coinType: string) => {},
+	hasCredited: async (_txDigest: string) => false,
+	creditUser: async (_userId: string, _amount: string, _coinType: string, _txDigest: string) => {},
 };
 
 // docs::#webhook-handler
@@ -87,8 +102,13 @@ async function handleProviderWebhook(req: Request): Promise<Response> {
 		return new Response('Onchain verification failed', { status: 422 });
 	}
 
-	// Step 3: Update application state.
-	await ledger.creditUser(payload.userId, payload.amount, payload.coinType);
+	// Step 3: Update application state. Providers redeliver webhooks (for
+	// example, after a transient 5xx from this handler), so crediting must be
+	// idempotent, keyed on the transaction digest.
+	if (await ledger.hasCredited(payload.transactionDigest)) {
+		return new Response('OK', { status: 200 });
+	}
+	await ledger.creditUser(payload.userId, payload.amount, payload.coinType, payload.transactionDigest);
 
 	return new Response('OK', { status: 200 });
 }
