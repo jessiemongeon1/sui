@@ -11,6 +11,8 @@ const client = new SuiGrpcClient({
 const userSuiAddress = '0xUSER_ADDRESS';
 const coinType = '0x2::sui::SUI';
 const depositDigest = 'DEPOSIT_TRANSACTION_DIGEST';
+// The amount the provider reported depositing, in base units (MIST for SUI).
+const expectedAmount = 1_000_000_000n;
 
 // docs::#verify-deposit
 // Verify a deposit by loading the transaction the provider reported and
@@ -32,6 +34,12 @@ const deposited = result.Transaction.balanceChanges
 			normalizeStructTag(change.coinType) === normalizeStructTag(coinType),
 	)
 	.reduce((sum, change) => sum + BigInt(change.amount), 0n);
+
+// Require an exact match. An unexpected amount, over or under, is a mismatch
+// to investigate, not silently accept.
+if (deposited !== expectedAmount) {
+	throw new Error(`Deposit mismatch: expected ${expectedAmount}, got ${deposited}`);
+}
 
 console.log('Amount deposited to user:', deposited);
 // docs::/#verify-deposit

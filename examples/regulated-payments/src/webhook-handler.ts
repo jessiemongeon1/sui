@@ -86,7 +86,9 @@ async function handleProviderWebhook(req: Request): Promise<Response> {
 		return new Response('Onchain verification failed', { status: 422 });
 	}
 
-	// Verify this transaction credited the recipient with the expected amount.
+	// Verify this transaction credited the recipient with exactly the expected
+	// amount. An unexpected amount, over or under, is a mismatch to investigate,
+	// not silently accept.
 	const recipient = normalizeSuiAddress(payload.recipientAddress);
 	const coinType = normalizeStructTag(payload.coinType);
 	const received = txResult.Transaction.balanceChanges
@@ -97,7 +99,7 @@ async function handleProviderWebhook(req: Request): Promise<Response> {
 		)
 		.reduce((sum, change) => sum + BigInt(change.amount), 0n);
 
-	if (received < BigInt(payload.amount)) {
+	if (received !== BigInt(payload.amount)) {
 		await complianceLogger.warn('Webhook does not match onchain state', payload);
 		return new Response('Onchain verification failed', { status: 422 });
 	}
