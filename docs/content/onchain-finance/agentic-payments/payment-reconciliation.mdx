@@ -7,7 +7,7 @@ keywords:
   - payment history
   - reconciliation
   - transaction history
-  - event subscription
+  - checkpoint subscription
   - indexer
   - audit
 goal:
@@ -52,7 +52,7 @@ List the agent's finalized transactions with the gRPC client's `listTransactions
 
 <ImportContent source="examples/onchain-finance/payment-reconciliation/src/reconcile.ts" mode="code" tag="list-transactions" />
 
-Results are cursor-paginated in ledger order. Persist `endCursor` between reconciliation runs so each pass scans only transactions added since the last one.
+Results are cursor-paginated in ledger order. Persist the returned cursor between reconciliation runs and pass it as `after` so each pass scans only transactions added since the last one.
 
 ## Verifying individual payments
 
@@ -68,9 +68,9 @@ The gRPC `SubscriptionService.SubscribeCheckpoints` streams checkpoints as the n
 
 <ImportContent source="examples/onchain-finance/payment-reconciliation/src/reconcile.ts" mode="code" tag="subscribe-checkpoints" />
 
-Subscriptions always begin at the current tip of the chain and do not support resumption. Persist the last received cursor; after a disconnect, replay the missed range with `LedgerService.ListCheckpoints` (same filter, `startCheckpoint` of cursor + 1) before re-subscribing.
+Subscriptions always begin at the current tip of the chain and do not support resumption. Persist the last received cursor; after a disconnect, re-subscribe first and note the new stream's first cursor, then replay the gap between the two with `LedgerService.ListCheckpoints` (same filter, `startCheckpoint` of the persisted cursor + 1). Replaying before re-subscribing silently misses checkpoints that finalize between the end of the replay and the new stream's first frame.
 
-For event-level filtering, use a [custom indexer pipeline](/develop/accessing-data/custom-indexer) built on the `sui-indexer-alt` framework. The indexer processes checkpoints and writes matching events to your database.
+For event-level filtering — for example, only payment events emitted by a specific Move module — use `SubscriptionService.SubscribeEvents`, which accepts a filter over event type, emitting module, or sender. For high-volume production monitoring, use a [custom indexer pipeline](/develop/accessing-data/custom-indexer) built on the `sui-indexer-alt` framework, which processes checkpoints and writes matching events to your database.
 
 ## Reconciliation algorithm
 

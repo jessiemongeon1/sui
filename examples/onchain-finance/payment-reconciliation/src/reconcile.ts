@@ -11,9 +11,12 @@ const client = new SuiGrpcClient({
 });
 
 // docs::#list-transactions
-async function fetchOnchainDigests(sender: string): Promise<Set<string>> {
+async function fetchOnchainDigests(
+	sender: string,
+	after: string | null = null,
+): Promise<{ digests: Set<string>; cursor: string | null }> {
 	const digests = new Set<string>();
-	let cursor: string | null = null;
+	let cursor = after;
 	let hasNextPage = true;
 
 	while (hasNextPage) {
@@ -35,7 +38,9 @@ async function fetchOnchainDigests(sender: string): Promise<Set<string>> {
 		cursor = page.endCursor;
 	}
 
-	return digests;
+	// Persist the returned cursor and pass it as `after` on the next run to
+	// scan only transactions added since this one.
+	return { digests, cursor };
 }
 // docs::/#list-transactions
 
@@ -97,7 +102,10 @@ async function verifyPayment(expected: ExpectedPayment): Promise<PaymentCheck> {
 // docs::/#verify-payment
 
 // docs::#subscribe-checkpoints
-async function watchAgentTransactions(agentAddress: string, onchainDigests: Set<string>) {
+async function watchAgentTransactions(
+	agentAddress: string,
+	onchainDigests: Set<string>,
+): Promise<bigint | undefined> {
 	const sender = normalizeSuiAddress(agentAddress);
 
 	// The filter selects checkpoints that contain at least one transaction
@@ -117,35 +125,43 @@ async function watchAgentTransactions(agentAddress: string, onchainDigests: Set<
 			],
 		},
 		readMask: {
-			paths: [
-				'sequence_number',
-				'transactions.digest',
-				'transactions.transaction',
-				'transactions.balance_changes',
-			],
+			paths: ['sequence_number', 'transactions.digest', 'transactions.transaction'],
 		},
 	});
 
-	// Subscriptions always start at the current tip and cannot resume. Persist
-	// the cursor so that after a disconnect you can replay the missed range
-	// with ledgerService.listCheckpoints (same filter, startCheckpoint of
-	// lastCursor + 1n) before re-subscribing.
+	// Subscriptions always start at the current tip and cannot resume, so a
+	// restart can miss checkpoints. To recover after a disconnect: re-subscribe
+	// first, note the new stream's first cursor, then replay the gap
+	// [lastCursor + 1n, firstNewCursor) with ledgerService.listCheckpoints
+	// (same filter; startCheckpoint is inclusive, endCheckpoint exclusive) and
+	// process those checkpoints the same way. Replaying before re-subscribing
+	// loses whatever finalizes between the end of the replay and the new
+	// stream's first frame.
 	let lastCursor: bigint | undefined;
 
-	for await (const frame of responses) {
-		lastCursor = frame.cursor ?? lastCursor;
+	try {
+		// The stream only ends when it errors or is cancelled, so in real use
+		// wrap this loop with reconnect and error handling.
+		for await (const frame of responses) {
+			lastCursor = frame.cursor ?? lastCursor;
 
-		// On filtered streams, frames without a checkpoint only advance the
-		// cursor past non-matching checkpoints.
-		if (!frame.checkpoint) continue;
+			// On filtered streams, frames without a checkpoint only advance the
+			// cursor past non-matching checkpoints.
+			if (!frame.checkpoint) continue;
 
-		for (const tx of frame.checkpoint.transactions) {
-			if (!tx.digest || tx.transaction?.sender !== sender) continue;
+			for (const tx of frame.checkpoint.transactions) {
+				if (!tx.digest || tx.transaction?.sender !== sender) continue;
 
-			// Feed the same state the reconciliation pass reads.
-			onchainDigests.add(tx.digest);
+				// Feed the same state the reconciliation pass reads.
+				onchainDigests.add(tx.digest);
+			}
 		}
+	} finally {
+		// Persist lastCursor here so the next session knows where its replay
+		// gap starts.
 	}
+
+	return lastCursor;
 }
 // docs::/#subscribe-checkpoints
 
@@ -161,6 +177,7 @@ interface LocalPaymentRecord {
 
 interface Discrepancy {
 	type:
+		| 'no_digest'
 		| 'execution_failed'
 		| 'wrong_payment'
 		| 'unacknowledged_confirmation'
@@ -179,7 +196,19 @@ async function reconcile(
 	const discrepancies: Discrepancy[] = [];
 
 	for (const record of localRecords) {
-		if (!record.digest) continue;
+		if (!record.digest) {
+			// No submission response means no digest to match — the riskiest
+			// case, because the transaction may still have executed. If it did,
+			// it surfaces below as unknown_transaction.
+			if (record.status !== 'failed') {
+				discrepancies.push({
+					type: 'no_digest',
+					record,
+					action: 'Match against unknown_transaction entries by recipient and amount before retrying.',
+				});
+			}
+			continue;
+		}
 
 		if (onchainDigests.has(record.digest)) {
 			// The digest is in the sender's finalized history. Verify what
@@ -194,11 +223,14 @@ async function reconcile(
 			});
 
 			if (check.status === 'execution_failed') {
-				discrepancies.push({
-					type: 'execution_failed',
-					record,
-					action: 'Gas was charged but no payment moved. Retry with a new transaction.',
-				});
+				// Only alert if the record does not already reflect the failure.
+				if (record.status !== 'failed') {
+					discrepancies.push({
+						type: 'execution_failed',
+						record,
+						action: 'Gas was charged but no payment moved. Mark failed; retry with a new transaction.',
+					});
+				}
 			} else if (check.status === 'mismatch') {
 				discrepancies.push({
 					type: 'wrong_payment',
@@ -220,15 +252,17 @@ async function reconcile(
 				record,
 				action: 'Re-run after the index catches up. Escalate if it stays missing.',
 			});
-		} else {
-			// Submitted, but no execution response and not in finalized history:
-			// the transaction may still finalize.
+		} else if (record.status === 'pending') {
+			// Submitted, but no execution response and not yet in finalized
+			// history: the transaction may still finalize.
 			discrepancies.push({
 				type: 'not_yet_final',
 				record,
 				action: 'Wait and re-run before retrying. A retry while the original is still in flight can double-pay.',
 			});
 		}
+		// A 'failed' record whose digest never appears onchain is consistent:
+		// the transaction did not execute.
 	}
 
 	// Sender transactions onchain that no local record claims: duplicate
