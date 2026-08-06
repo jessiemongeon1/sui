@@ -550,6 +550,7 @@ export default {
     },
     'onchain-finance/payment-kit',
 	'onchain-finance/payment-intents',
+    'onchain-finance/p2p-reference-app',
   ],
 
 suiStackSidebar: [

@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { createSponsor } from '@mysten-incubation/sponsor';
+import { createSponsor, defaults, gasBudget } from '@mysten-incubation/sponsor';
 import { SuiGrpcClient } from '@mysten/sui/grpc';
 import { Transaction } from '@mysten/sui/transactions';
 import type { Signer } from '@mysten/sui/cryptography';
@@ -19,17 +19,24 @@ const client = new SuiGrpcClient({
 // docs::#create-sponsor
 // Server side: the sponsor pays gas from its SUI address balance and
 // validates every transaction against a pluggable policy before co-signing.
+// Passing `validate` replaces the default policy rather than extending it,
+// so keep defaults() in the array alongside your own validators.
 const sponsor = createSponsor({
 	signer: sponsorSigner,
 	client,
+	validate: [defaults(), gasBudget({ max: 50_000_000n })],
 });
 // docs::/#create-sponsor
+
+// In a real app the client fetches this from config or an endpoint that
+// returns the server's sponsor.address.
+const sponsorAddress = sponsor.address;
 
 // docs::#sponsor-flow
 // Client side: build the transaction with the sponsor as gas owner,
 // paying from the sponsor's address balance (no specific gas coins).
 tx.setSender(senderAddress);
-tx.setGasOwner(sponsor.address);
+tx.setGasOwner(sponsorAddress);
 tx.setGasPayment([]);
 const bytes = await tx.build({ client });
 

@@ -45,8 +45,8 @@ questions:
 answer: >-
   A P2P payments app on Sui combines zkLogin for wallet-free authentication,
   sponsored transactions for gasless UX, address balance transfers for the
-  actual payment, and gRPC queries for transaction history, all composable
-  within a single programmable transaction block.
+  actual payment, and gRPC queries for transaction history. The payment itself
+  is a single sponsor-cosignable programmable transaction block.
 ---
 
 This walkthrough builds a peer-to-peer payments flow that lets users send stablecoins to each other without holding SUI or managing private keys. It stitches together four primitives:
@@ -83,7 +83,7 @@ sequenceDiagram
 - [x] Node.js 18 or later installed.
 - [x] `@mysten/sui` SDK installed (`npm install @mysten/sui`).
 - [x] The sponsor SDK installed if you self-host sponsorship (`npm install @mysten-incubation/sponsor`).
-- [x] A [Testnet SUI balance](/getting-started/onboarding/get-coins) deposited into the sponsor address's balance.
+- [x] Testnet SUI for the sponsor: [get coins from the faucet](/getting-started/onboarding/get-coins), then deposit them into the sponsor's address balance (the faucet only hands out coin objects) — for example with a one-time `0x2::coin::send_funds(coin, sponsorAddress)` call.
 - [x] An OAuth client ID (Google) for [zkLogin](/sui-stack/zklogin-integration/zklogin), or an existing wallet for connection.
 
 </TabItem>
@@ -155,22 +155,26 @@ If the transfer is not eligible for gasless execution (non-stablecoin, or includ
 On your server, create the sponsor once:
 
 ```typescript
-import { createSponsor } from '@mysten-incubation/sponsor';
+import { createSponsor, defaults, gasBudget } from '@mysten-incubation/sponsor';
 
-// Runs the default validation policy; add validators like
-// gasBudget({ max }) or allowedPackages([...]) to tighten it.
+// Passing `validate` replaces the default policy rather than extending
+// it, so keep defaults() in the array alongside your own validators.
+// (With no `validate` at all, the sponsor runs defaults() on its own.)
 const sponsor = createSponsor({
 	signer: sponsorSigner,
 	client,
+	validate: [defaults(), gasBudget({ max: 50_000_000n })],
 });
 ```
 
-In the app, build the transaction with the sponsor as gas owner and have the user sign the final bytes. Then send the bytes and user signature to your server, where the sponsor validates, co-signs, and executes:
+In the app, build the transaction with the sponsor as gas owner and have the user sign the final bytes. The `sponsor` object only exists on your server, so the app needs the sponsor's address some other way: ship it in app config, or expose an endpoint that returns `sponsor.address`. Then send the bytes and user signature to your server, where the sponsor validates, co-signs, and executes:
 
 ```typescript
-// Client side: the sponsor pays from its address balance (no specific gas coins).
+// Client side: the sponsor pays from its address balance (no specific
+// gas coins). sponsorAddress comes from app config or an endpoint that
+// returns the server's sponsor.address.
 tx.setSender(senderAddress);
-tx.setGasOwner(sponsor.address);
+tx.setGasOwner(sponsorAddress);
 tx.setGasPayment([]);
 const bytes = await tx.build({ client });
 
@@ -225,7 +229,7 @@ if (result.$kind === 'FailedTransaction') {
 
 ## Step 6: Query transaction history
 
-Display the user's past payments by querying transactions sent by their address, using the same `SuiGrpcClient` as the rest of the app.
+Display payments the user sent by querying transactions from their address, using the same `SuiGrpcClient` as the rest of the app. Note that `listTransactions` filters by sender (or Move function), so this shows outgoing payments only — incoming payments don't appear.
 
 ```typescript
 const { transactions } = await client.listTransactions({
@@ -256,7 +260,7 @@ for (const result of transactions) {
 }
 ```
 
-For higher-volume history queries or filtered views (by coin type, date range, or amount), consider building a [custom indexer](/develop/accessing-data/custom-indexer/custom-indexers) that listens for payment events and stores them in a queryable database.
+To show incoming payments, higher-volume history, or filtered views (by coin type, date range, or amount), build a [custom indexer](/develop/accessing-data/custom-indexer/custom-indexers) that listens for payment events and stores them in a queryable database.
 
 ## Putting it together
 
